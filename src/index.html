@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deploy Election Contract</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Election DApp</a>
+            <span id="accountAddress" class="navbar-text"></span>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center my-4">Deploy Election Contract</h1>
+
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+
+        <div id="loader" style="display: none;">
+            Loading...
+        </div>
+
+        <div id="content">
+            <form id="deployForm">
+                <div class="form-group">
+                    <label for="maxVoters">Maximum Number of Voters:</label>
+                    <input type="number" class="form-control" id="maxVoters" required min="1">
+                </div>
+
+                <div id="questionsContainer">
+                    <div class="question-container">
+                        <h3>Question 1</h3>
+                        <input type="text" class="form-control question" placeholder="Enter question" required>
+                        <h4>Answers</h4>
+                        <input type="text" class="form-control answer" placeholder="Answer 1" required>
+                        <input type="text" class="form-control answer" placeholder="Answer 2" required>
+                        <input type="text" class="form-control answer" placeholder="Answer 3" required>
+                        <input type="text" class="form-control answer" placeholder="Answer 4" required>
+                        <input type="text" class="form-control answer" placeholder="Answer 5" required>
+                    </div>
+                </div>
+
+                <button type="button" id="addQuestionBtn" class="btn btn-secondary mt-3">Add Question</button>
+                <button type="submit" id="deployButton" class="btn btn-primary mt-3">Deploy Contract</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/index.js"></script>
+</body>
+</html>

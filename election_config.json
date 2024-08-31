@@ -1,0 +1,31 @@
+{
+  "questions": [
+    "What is your stance on environmental policies?",
+    "How do you feel about healthcare reform?",
+    "What is your opinion on education funding?"
+  ],
+  "answerOptions": [
+    [
+      "Strongly Against",
+      "Against",
+      "Neutral",
+      "Support",
+      "Strongly Support"
+    ],
+    [
+      "Strongly Against",
+      "Against",
+      "Neutral",
+      "Support",
+      "Strongly Support"
+    ],
+    [
+      "Strongly Against",
+      "Against",
+      "Neutral",
+      "Support",
+      "Strongly Support"
+    ]
+  ],
+  "maxVoters": 1000
+}

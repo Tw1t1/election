@@ -8,7 +8,7 @@ const App = {
     initialized: false,
     initializationPromise: null,
 
-    init: function() {
+    init: function () {
         console.log("App.init called");
         if (this.initializationPromise) {
             console.log("Returning existing initialization promise");
@@ -20,7 +20,7 @@ const App = {
         return this.initializationPromise;
     },
 
-    _init: async function() {
+    _init: async function () {
         if (this.initialized) {
             console.log("App already initialized.");
             return;
@@ -45,7 +45,7 @@ const App = {
         }
     },
 
-    initWeb3: async function() {
+    initWeb3: async function () {
         if (typeof window.ethereum !== 'undefined') {
             App.web3Provider = window.ethereum;
             try {
@@ -63,7 +63,7 @@ const App = {
         window.web3 = new Web3(App.web3Provider);
     },
 
-    initContract: async function() {
+    initContract: async function () {
         try {
             const response = await fetch('Election.json');
             const electionArtifact = await response.json();
@@ -74,7 +74,7 @@ const App = {
         }
     },
 
-    initAccount: async function() {
+    initAccount: async function () {
         try {
             const accounts = await window.web3.eth.getAccounts();
             App.account = accounts[0];
@@ -84,7 +84,7 @@ const App = {
         }
     },
 
-    connectWallet: async function() {
+    connectWallet: async function () {
         App.setLoading(true);
         try {
             await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -98,7 +98,7 @@ const App = {
         }
     },
 
-    checkContractDeployment: async function() {
+    checkContractDeployment: async function () {
         this.setLoading(true);
         try {
             const deployedAddress = localStorage.getItem('electionContractAddress');
@@ -109,6 +109,7 @@ const App = {
                 if (window.location.href.includes('index.html')) {
                     window.location.href = 'home.html';
                 }
+                App.checkUserType(App.account);
             } else {
                 console.log("No deployed contract found");
                 if (!window.location.href.includes('index.html')) {
@@ -125,7 +126,7 @@ const App = {
         }
     },
 
-    render: async function() {
+    render: async function () {
         this.setLoading(true);
         try {
             if (this.account) {
@@ -145,7 +146,7 @@ const App = {
         }
     },
 
-    setLoading: function(isLoading) {
+    setLoading: function (isLoading) {
         App.loading = isLoading;
         const loader = $("#loader");
         const content = $("#content");
@@ -158,17 +159,56 @@ const App = {
         }
     },
 
-    showError: function(message) {
+    showError: function (message) {
         const errorDiv = $("#errorMessage");
         errorDiv.text(message);
         errorDiv.show();
         setTimeout(() => {
             errorDiv.hide();
         }, 5000);
+    },
+
+    checkUserType: async function (userAddress) {
+        if (userAddress && App.election) {
+            console.log("Checking user type:", userAddress);
+            // Check if the user is the admin (owner of the contract)
+            try {
+                const owner = await App.election.owner(); // No methods required for owner() in OpenZeppelin's Ownable
+                if (userAddress.toLowerCase() === owner.toLowerCase()) {
+                    console.log("User is admin");
+                    return 'admin';
+                }
+
+                // Check if the user is a candidate
+                const candidate = await App.election.candidates(userAddress);
+                if (candidate.approved) {
+                    console.log("User is candidate");
+                    return 'candidate';
+                }
+
+                // Check if the user is a voter
+                const voter = await App.election.voters(userAddress);
+                if (voter.approved) {
+                    console.log("User is voter");
+                    return 'voter';
+                }
+
+                // If none of the above conditions are met, the user is a regular user
+                console.log("User is regular user");
+                return 'user';
+            } catch (error) {
+                console.error("Error checking user type:", error);
+            }
+        }
+        else {
+            // If the user is not logged in, return 'guest'
+            console.log("User is guest");
+            return 'guest';
+        }
     }
 };
 
-$(document).ready(function() {
+$(document).ready(function () {
     App.init().catch(error => {
         console.error("Error during App initialization:", error);
     });

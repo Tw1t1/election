@@ -15,33 +15,28 @@
     </nav>
 
     <div class="container mt-5">
-        <h1 class="text-center my-4">Deploy Election Contract</h1>
 
         <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
 
-        <div id="loader" style="display: none;">
+        <div id="loader" class="display-4 text-center">
             Loading...
         </div>
 
         <div id="content">
-            <form id="deployForm">
+            <div id="connectWallet" class="text-center" style="display: none;">
+                <h2 class="my-4">Please connect your wallet</h2>
+                <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+            </div>
+
+            <form id="deployForm" style="display: none;">
+                <h1 class="text-center my-4">Deploy Election Contract</h1>
+
                 <div class="form-group">
                     <label for="maxVoters">Maximum Number of Voters:</label>
                     <input type="number" class="form-control" id="maxVoters" required min="1">
                 </div>
 
-                <div id="questionsContainer">
-                    <div class="question-container">
-                        <h3>Question 1</h3>
-                        <input type="text" class="form-control question" placeholder="Enter question" required>
-                        <h4>Answers</h4>
-                        <input type="text" class="form-control answer" placeholder="Answer 1" required>
-                        <input type="text" class="form-control answer" placeholder="Answer 2" required>
-                        <input type="text" class="form-control answer" placeholder="Answer 3" required>
-                        <input type="text" class="form-control answer" placeholder="Answer 4" required>
-                        <input type="text" class="form-control answer" placeholder="Answer 5" required>
-                    </div>
-                </div>
+                <div id="questionsContainer"></div>
 
                 <button type="button" id="addQuestionBtn" class="btn btn-secondary mt-3">Add Question</button>
                 <button type="submit" id="deployButton" class="btn btn-primary mt-3">Deploy Contract</button>

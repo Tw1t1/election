@@ -7,28 +7,51 @@ $(document).ready(function() {
 const Index = {
     init: function() {
         this.bindEvents();
+        for (let i = 0; i < 3; i++) {
+            this.addQuestion();
+        }
     },
 
     bindEvents: function() {
         $(document).on('click', '#addQuestionBtn', this.addQuestion);
+        $(document).on('click', '.removeQuestionBtn', this.removeQuestion);
         $(document).on('submit', '#deployForm', this.deployContract);
     },
 
     addQuestion: function() {
         const questionCount = $('.question-container').length + 1;
         const newQuestion = `
-            <div class="question-container">
-                <h3>Question ${questionCount}</h3>
-                <input type="text" class="form-control question" placeholder="Enter question" required>
-                <h4>Answers</h4>
-                <input type="text" class="form-control answer" placeholder="Answer 1" required>
-                <input type="text" class="form-control answer" placeholder="Answer 2" required>
-                <input type="text" class="form-control answer" placeholder="Answer 3" required>
-                <input type="text" class="form-control answer" placeholder="Answer 4" required>
-                <input type="text" class="form-control answer" placeholder="Answer 5" required>
+            <div class="question-container card mb-3">
+                <div class="card-body">
+                    <h3 class="card-title">Question ${questionCount}</h3>
+                    <input type="text" class="form-control question mb-2" placeholder="Enter question" required>
+                    <h4>Answers</h4>
+                    <input type="text" class="form-control answer mb-2" placeholder="Answer 1" required>
+                    <input type="text" class="form-control answer mb-2" placeholder="Answer 2" required>
+                    <input type="text" class="form-control answer mb-2" placeholder="Answer 3" required>
+                    <input type="text" class="form-control answer mb-2" placeholder="Answer 4" required>
+                    <input type="text" class="form-control answer mb-2" placeholder="Answer 5" required>
+                    <button type="button" class="btn btn-danger removeQuestionBtn mt-2">Remove Question</button>
+                </div>
             </div>
         `;
         $('#questionsContainer').append(newQuestion);
+        Index.updateQuestionNumbers();
+    },
+
+    removeQuestion: function() {
+        if ($('.question-container').length > 3) {
+            $(this).closest('.question-container').remove();
+            Index.updateQuestionNumbers();
+        } else {
+            App.showError("You must have at least 3 questions.");
+        }
+    },
+
+    updateQuestionNumbers: function() {
+        $('.question-container').each(function(index) {
+            $(this).find('h3').text(`Question ${index + 1}`);
+        });
     },
 
     deployContract: async function(event) {

@@ -5,18 +5,44 @@ const App = {
     election: null,
     contractAddress: null,
     loading: false,
+    initialized: false,
+    initializationPromise: null,
 
-    init: async function() {
+    init: function() {
+        console.log("App.init called");
+        if (this.initializationPromise) {
+            console.log("Returning existing initialization promise");
+            return this.initializationPromise;
+        }
+
+        console.log("Starting new initialization");
+        App.initializationPromise = App._init();
+        return this.initializationPromise;
+    },
+
+    _init: async function() {
+        if (this.initialized) {
+            console.log("App already initialized.");
+            return;
+        }
         console.log("Initializing app...");
+        this.setLoading(true);
         try {
-            await App.initWeb3();
-            await App.initContract();
-            await App.initAccount();
-            await App.checkContractDeployment();
+            await this.initWeb3();
+            await this.initContract();
+            await this.initAccount();
+            await this.checkContractDeployment();
+            this.initialized = true;
+            console.log("App initialized.");
+            await this.render();
         } catch (error) {
             console.error("Initialization error:", error);
+            this.showError("Failed to initialize the application. Please refresh and try again.");
+            this.initializationPromise = null;
+            throw error;
+        } finally {
+            this.setLoading(false);
         }
-        console.log("App initialized.");
     },
 
     initWeb3: async function() {
@@ -26,10 +52,12 @@ const App = {
                 // Request account access
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
             } catch (error) {
+                // User denied account access...
                 console.error("User denied account access")
             }
         } else {
             console.warn("No ethereum browser detected. You should consider trying MetaMask!");
+            App.showError("No Ethereum browser detected. You should consider trying MetaMask!");
             App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
         }
         window.web3 = new Web3(App.web3Provider);
@@ -56,13 +84,31 @@ const App = {
         }
     },
 
+    connectWallet: async function() {
+        App.setLoading(true);
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            await App.initAccount();
+            await App.render();
+        } catch (error) {
+            console.error("Failed to connect wallet:", error);
+            App.showError("Failed to connect wallet. Please try again.");
+        } finally {
+            App.setLoading(false);
+        }
+    },
+
     checkContractDeployment: async function() {
+        this.setLoading(true);
         try {
             const deployedAddress = localStorage.getItem('electionContractAddress');
             if (deployedAddress) {
                 App.contractAddress = deployedAddress;
                 App.election = await App.contracts.Election.at(deployedAddress);
                 console.log("Contract loaded at address:", App.contractAddress);
+                if (window.location.href.includes('index.html')) {
+                    window.location.href = 'home.html';
+                }
             } else {
                 console.log("No deployed contract found");
                 if (!window.location.href.includes('index.html')) {
@@ -74,6 +120,28 @@ const App = {
             if (!window.location.href.includes('index.html')) {
                 window.location.href = 'index.html';
             }
+        } finally {
+            this.setLoading(false);
+        }
+    },
+
+    render: async function() {
+        this.setLoading(true);
+        try {
+            if (this.account) {
+                $('#accountAddress').html('Your Account: ' + this.account);
+                $('#connectWallet').hide();
+                $('#deployForm').show();
+            } else {
+                $('#accountAddress').html('');
+                $('#connectWallet').show();
+                $('#deployForm').hide();
+            }
+        } catch (error) {
+            console.error("Error rendering app:", error);
+            this.showError("Failed to render the application. Please refresh and try again.");
+        } finally {
+            this.setLoading(false);
         }
     },
 
@@ -101,5 +169,18 @@ const App = {
 };
 
 $(document).ready(function() {
-    App.init();
+    App.init().catch(error => {
+        console.error("Error during App initialization:", error);
+    });
+
+    // Listen for account changes
+    if (window.ethereum) {
+        window.ethereum.on('accountsChanged', function (accounts) {
+            App.account = accounts[0];
+            App.render();
+        });
+    }
+
+    // Add click handler for connect wallet button
+    $('#connectWalletBtn').click(App.connectWallet);
 });

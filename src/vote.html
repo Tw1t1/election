@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Election DApp - Home</title>
+    <title>Election DApp - Vote</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
@@ -26,29 +26,15 @@
     </nav>
 
     <div class="container mt-5">
-        <h1 class="mb-4">Welcome to the Election DApp</h1>
-
+        <h1>Welcome to the Election DApp</h1>
         <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
-
         <div id="electionInfo">
-            <h2>Election Information</h2>
-            <p><strong>Contract Address:</strong> <span id="contractAddress"></span></p>
-            <p><strong>Election Status:</strong> <span id="electionStatus"></span></p>
-            <p><strong>Start Time:</strong> <span id="startTime"></span></p>
-            <p><strong>End Time:</strong> <span id="endTime"></span></p>
-            <p><strong>Candidates Count:</strong> <span id="candidatesCount"></span></p>
-
-            <div id="adminOnlyInfo" style="display: none;">
-                <p><strong>Open Candidate Applications:</strong> <span id="openCandidateApplications"></span></p>
-                <p><strong>Open Voter Applications:</strong> <span id="openVoterApplications"></span></p>
-                <p><strong>Voters Count:</strong> <span id="votersCount"></span></p>
-                <p><strong>Total Votes:</strong> <span id="totalVotes"></span></p>
-            </div>
-
-            <div id="resultsSection" style="display: none;">
-                <h3>Election Results</h3>
-                <ul id="resultsList"></ul>
-            </div>
+            <p>Contract Address: <span id="contractAddress"></span></p>
+            <p>Total Voters: <span id="totalVoters"></span></p>
+            <p>Total Candidates: <span id="totalCandidates"></span></p>
+            <p>Voting Status: <span id="votingStatus"></span></p>
+            <p>Voting Start Time: <span id="votingStartTime"></span></p>
+            <p>Voting End Time: <span id="votingEndTime"></span></p>
         </div>
     </div>
 
@@ -58,7 +44,7 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/home.js"></script>
+    <script src="js/vote.js"></script>
 </body>
 
 </html>

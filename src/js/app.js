@@ -6,7 +6,17 @@ const App = {
     contractAddress: null,
     loading: false,
     initialized: false,
+    onInitialized: null,
     initializationPromise: null,
+    userTypes: ['guest', 'user', 'candidate', 'voter', 'admin'],
+    userType: 'guest',
+
+    menuItems: [
+        { name: 'Home', link: 'home.html', visible: (userType) => userType !== 'guest' },
+        { name: 'Vote', link: 'vote.html', visible: (userType) => userType === 'candidate' || userType === 'voter' },
+        { name: 'Application', link: 'application.html', visible: (userType) => userType === 'candidate' || userType === 'voter' || userType === 'user' },
+        { name: 'Settings', link: 'admin.html', visible: (userType) => userType === 'admin' }
+    ],
 
     init: function () {
         console.log("App.init called");
@@ -32,9 +42,12 @@ const App = {
             await this.initContract();
             await this.initAccount();
             await this.checkContractDeployment();
+            await this.setPage();
             this.initialized = true;
             console.log("App initialized.");
-            await this.render();
+            if (this.onInitialized) {
+                this.onInitialized();
+            }
         } catch (error) {
             console.error("Initialization error:", error);
             this.showError("Failed to initialize the application. Please refresh and try again.");
@@ -84,19 +97,9 @@ const App = {
         }
     },
 
-    connectWallet: async function () {
-        App.setLoading(true);
-        try {
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-            await App.initAccount();
-            await App.render();
-        } catch (error) {
-            console.error("Failed to connect wallet:", error);
-            App.showError("Failed to connect wallet. Please try again.");
-        } finally {
-            App.setLoading(false);
-        }
-    },
+    setOnInitialized: function(callback) {
+        this.onInitialized = callback;
+    }, 
 
     checkContractDeployment: async function () {
         this.setLoading(true);
@@ -106,43 +109,32 @@ const App = {
                 App.contractAddress = deployedAddress;
                 App.election = await App.contracts.Election.at(deployedAddress);
                 console.log("Contract loaded at address:", App.contractAddress);
-                if (window.location.href.includes('index.html')) {
-                    window.location.href = 'home.html';
-                }
-                App.checkUserType(App.account);
+                App.userType = await App.checkUserType(App.account);
+                console.log("User type:", App.userType);
             } else {
                 console.log("No deployed contract found");
-                if (!window.location.href.includes('index.html')) {
-                    window.location.href = 'index.html';
-                }
             }
         } catch (error) {
             console.error("Error checking contract deployment:", error);
-            if (!window.location.href.includes('index.html')) {
-                window.location.href = 'index.html';
-            }
         } finally {
             this.setLoading(false);
         }
     },
 
-    render: async function () {
-        this.setLoading(true);
-        try {
-            if (this.account) {
-                $('#accountAddress').html('Your Account: ' + this.account);
-                $('#connectWallet').hide();
-                $('#deployForm').show();
-            } else {
-                $('#accountAddress').html('');
-                $('#connectWallet').show();
-                $('#deployForm').hide();
+    setPage: async function () {
+        if (App.account) {
+            if (App.election) {
+                if (window.location.href.includes('index.html') || window.location.href.includes('deploy.html') || window.location.pathname === '/' || window.location.pathname === '') {
+                    window.location.href = 'home.html';
+                }
+            } else if (!window.location.href.includes('deploy.html')) {
+                window.location.href = 'deploy.html';
             }
-        } catch (error) {
-            console.error("Error rendering app:", error);
-            this.showError("Failed to render the application. Please refresh and try again.");
-        } finally {
-            this.setLoading(false);
+        } else {
+            console.log("User not logged in");
+            if (!window.location.href.includes('index.html')) {
+                window.location.href = 'index.html';
+            }
         }
     },
 
@@ -159,6 +151,23 @@ const App = {
         }
     },
 
+    renderNavbar: function(page) {
+        console.log("Rendering navbar for page:", page, "User type:", App.userType);
+        const navbarItemsHTML = App.menuItems.map(item => {
+            if (item.visible(App.userType)) {
+                const isActive = item.name === page ? ' active" aria-current="page' : '';
+                return `
+                    <li class="nav-item">
+                        <a class="nav-link${isActive}" href="${item.link}">${item.name}</a>
+                    </li>
+                `;
+            }
+            return '';
+        }).join('');
+    
+        $('#navbarItems').html(navbarItemsHTML);
+    },
+
     showError: function (message) {
         const errorDiv = $("#errorMessage");
         errorDiv.text(message);
@@ -170,31 +179,26 @@ const App = {
 
     checkUserType: async function (userAddress) {
         if (userAddress && App.election) {
-            console.log("Checking user type:", userAddress);
             // Check if the user is the admin (owner of the contract)
             try {
                 const owner = await App.election.owner(); // No methods required for owner() in OpenZeppelin's Ownable
                 if (userAddress.toLowerCase() === owner.toLowerCase()) {
-                    console.log("User is admin");
                     return 'admin';
                 }
 
                 // Check if the user is a candidate
                 const candidate = await App.election.candidates(userAddress);
                 if (candidate.approved) {
-                    console.log("User is candidate");
                     return 'candidate';
                 }
 
                 // Check if the user is a voter
                 const voter = await App.election.voters(userAddress);
                 if (voter.approved) {
-                    console.log("User is voter");
                     return 'voter';
                 }
 
                 // If none of the above conditions are met, the user is a regular user
-                console.log("User is regular user");
                 return 'user';
             } catch (error) {
                 console.error("Error checking user type:", error);
@@ -202,7 +206,6 @@ const App = {
         }
         else {
             // If the user is not logged in, return 'guest'
-            console.log("User is guest");
             return 'guest';
         }
     }
@@ -217,10 +220,7 @@ $(document).ready(function () {
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', function (accounts) {
             App.account = accounts[0];
-            App.render();
+            App.setPage();
         });
     }
-
-    // Add click handler for connect wallet button
-    $('#connectWalletBtn').click(App.connectWallet);
 });

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election DApp - Admin</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Election DApp</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul id="navbarItems" class="navbar-nav">
+                    <!-- Navbar items will be dynamically inserted here -->
+                </ul>
+            </div>
+            <span id="accountAddress" class="navbar-text"></span>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1>Welcome to the Election DApp Admin Panel</h1>
+
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+
+        <div class="btn-group mb-4" role="group">
+            <button type="button" class="btn btn-primary" onclick="Admin.showSection('electionTime')">Election Time</button>
+            <button type="button" class="btn btn-primary" onclick="Admin.showSection('candidates')">Candidates</button>
+            <button type="button" class="btn btn-primary" onclick="Admin.showSection('voters')">Voters</button>
+        </div>
+
+        <div id="electionTimeSection" style="display: none;">
+            <h2>Election Time</h2>
+            <div id="currentElectionTime"></div>
+            <div id="setElectionTimeForm">
+                <h3>Set Election Time</h3>
+                <form onsubmit="return Admin.setElectionTime(event)">
+                    <div class="mb-3">
+                        <label for="startTime" class="form-label">Start Time</label>
+                        <input type="datetime-local" class="form-control" id="startTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="endTime" class="form-label">End Time</label>
+                        <input type="datetime-local" class="form-control" id="endTime" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Set Election Time</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="candidatesSection" style="display: none;">
+            <h2>Candidates</h2>
+            <h3>Approved Candidates</h3>
+            <div id="approvedCandidates"></div>
+            <h3>Candidate Applications</h3>
+            <div id="candidateApplications"></div>
+        </div>
+
+        <div id="votersSection" style="display: none;">
+            <h2>Voters</h2>
+            <h3>Approved Voters</h3>
+            <div id="approvedVoters"></div>
+            <h3>Voter Applications</h3>
+            <div id="voterApplications"></div>
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

@@ -89,24 +89,27 @@ contract("Election", function (accounts) {
 
     it("Should allow the owner to approve a voter", async function () {
       await election.applyForVoter({ from: addr1 });
-      await election.approveVoter(addr1, { from: owner });
-      const voter = await election.voters(web3.utils.keccak256(addr1));
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.approveVoter(hashedAddr1, { from: owner });
+      const voter = await election.voters(hashedAddr1);
       expect(voter.approved).to.be.true;
     });
 
     it("Should allow the owner to reject a voter", async function () {
       await election.applyForVoter({ from: addr1 });
-      await election.rejectVoter(addr1, { from: owner });
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.rejectVoter(hashedAddr1, { from: owner });
       const applications = await election.getVoterApplicationsAddresses();
-      expect(applications).to.not.include(web3.utils.keccak256(addr1));
+      expect(applications).to.not.include(hashedAddr1);
     });
 
     it("Should allow the owner to remove an approved voter", async function () {
       await election.applyForVoter({ from: addr1 });
-      await election.approveVoter(addr1, { from: owner });
-      await election.removeVoter(addr1, { from: owner });
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.approveVoter(hashedAddr1, { from: owner });
+      await election.removeVoter(hashedAddr1, { from: owner });
       const voterAddresses = await election.getVoterAddresses();
-      expect(voterAddresses).to.not.include(web3.utils.keccak256(addr1));
+      expect(voterAddresses).to.not.include(hashedAddr1);
     });
   });
 
@@ -143,7 +146,7 @@ contract("Election", function (accounts) {
 
       for (let i = 0; i < 5; i++) {
         await election.applyForVoter({ from: addrs[i] });
-        await election.approveVoter(addrs[i], { from: owner });
+        await election.approveVoter(web3.utils.keccak256(addrs[i]), { from: owner });
       }
 
       // Set election times
@@ -195,9 +198,10 @@ contract("Election", function (accounts) {
     it("Should allow voting by opinion", async function () {
       await time.increaseTo(start.add(time.duration.seconds(1)));
       await election.voteByOpinion([0, 1], { from: addrs[0] });
-      const voter = await election.voters(web3.utils.keccak256(addrs[0]));
+      hashedAddr0 = web3.utils.keccak256(addrs[0]);
+      const voter = await election.voters(hashedAddr0);
       expect(voter.hasVoted).to.be.true;
-      const opinions = await election.getVoterOpinions(web3.utils.keccak256(addrs[0]));
+      const opinions = await election.getVoterOpinions(hashedAddr0);
       expect(opinions.map(o => o.toString())).to.deep.equal(['0', '1']);
     });
 
@@ -230,7 +234,7 @@ contract("Election", function (accounts) {
 
       for (let i = 0; i < 5; i++) {
         await election.applyForVoter({ from: addrs[i] });
-        await election.approveVoter(addrs[i], { from: owner });
+        await election.approveVoter(web3.utils.keccak256(addrs[i]), { from: owner });
       }
 
       // Set election times
@@ -276,7 +280,7 @@ contract("Election", function (accounts) {
       await election.approveCandidate(addr1, { from: owner });
 
       await election.applyForVoter({ from: addr2 });
-      await election.approveVoter(addr2, { from: owner });
+      await election.approveVoter(web3.utils.keccak256(addr2), { from: owner });
 
       // Set election times
       start = (await time.latest()).add(time.duration.seconds(100));

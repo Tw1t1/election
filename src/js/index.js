@@ -1,5 +1,7 @@
 $(document).ready(function() {
     App.init().then(function() {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Index.init();
     });
 });
@@ -31,7 +33,6 @@ const Index = {
     render: function() {
         if (App.account) {
             $('#content').hide();
-            $('#accountAddress').text(App.account);
             $('#accountDetails').show();
         } else {
             $('#content').show();

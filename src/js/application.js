@@ -1,5 +1,7 @@
 $(document).ready(function() {
     App.init().then(function() {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Application.init();
     });
 });
@@ -8,44 +10,107 @@ const Application = {
     init: async function() {
         await this.checkApplicationStatus();
         this.bindEvents();
-        App.renderNavbar('Application');
         await this.loadQuestions();
     },
 
     bindEvents: function() {
         $('#candidateForm').on('submit', this.applyAsCandidate);
         $('#applyAsVoter').on('click', this.applyAsVoter);
+        $('#showCandidateApplication').on('click', this.showCandidateApplication);
+        $('#showVoterApplication').on('click', this.showVoterApplication);
     },
 
     checkApplicationStatus: async function() {
-        const isCandidateApplied = await App.election.candidateApplications(App.account);
+        const isCandidateApproved = await App.election.candidates(App.account);        
+        const isVoterApproved = await App.election.voters(web3.utils.keccak256(App.account));        
+        const isCandidateApplied = await App.election.candidateApplications(App.account);        
         const isVoterApplied = await App.election.voterApplications(web3.utils.keccak256(App.account));
-        const candidate = await App.election.candidates(App.account);
-        const voter = await App.election.voters(web3.utils.keccak256(App.account));
+        const electionStarted = (await App.getElectionTime()).start;
     
-        if (candidate.approved) {
-            $('#candidateApplication').hide();
-            $('#applicationStatus').show();
-            $('#statusMessage').text('You are an approved candidate.');
-        } else if (isCandidateApplied) {
-            $('#candidateApplication').hide();
-            $('#applicationStatus').show();
-            $('#statusMessage').text('Your candidate application is pending approval.');
+        const statusCode = (isCandidateApproved.approved ? 1 : 0) << 3 | 
+                            (isVoterApproved.approved ? 1 : 0) << 2 | 
+                            (isCandidateApplied ? 1 : 0) << 1 | 
+                            (isVoterApplied ? 1 : 0);
+        
+        let message = '';
+        let showCandidateOption = true;
+        let showVoterOption = true;
+
+        if (electionStarted != 0 && electionStarted < Date.now()) {
+            message = 'The election has started. New applications are no longer accepted.';
+            showCandidateOption = false;
+            showVoterOption = false;
+        } else {
+            switch (statusCode) {
+                case 0b1000: // Candidate approved, not voter
+                    message = 'You are an approved candidate. You can still apply to be a voter.';
+                    showCandidateOption = false;
+                    break;
+                case 0b0100: // Voter approved
+                    message = 'You are an approved voter. You can still apply to be a candidate.';
+                    showVoterOption = false;
+                    break;
+                case 0b1100: // Both approved
+                    message = 'You are both an approved candidate and voter.';
+                    showCandidateOption = false;
+                    showVoterOption = false;
+                    break;
+                case 0b0010: // Candidate application pending
+                    message = 'Your candidate application is pending approval.';
+                    showCandidateOption = false;
+                    showVoterOption = false;
+                    break;
+                case 0b0001: // Voter application pending
+                    message = 'Your voter application is pending approval. You can still apply to be a candidate.';
+                    showVoterOption = false;
+                    break;
+                case 0b0011: // Both applications pending
+                    message = 'Your applications for both candidate and voter are pending approval.';
+                    showCandidateOption = false;
+                    showVoterOption = false;
+                    break;
+                case 0b0110: // Voter approved, candidate application pending
+                    message = 'You are an approved voter, and your candidate application is pending approval.';
+                    showCandidateOption = false;
+                    showVoterOption = false;
+                    break;
+                case 0b1001: // Candidate approved, voter application pending
+                    message = 'You are an approved candidate, and your voter application is pending approval.';
+                    showCandidateOption = false;
+                    showVoterOption = false;
+                    break;
+                default:
+                    message = 'You can apply to be a candidate or a voter.';
+            }
         }
     
-        if (voter.approved) {
-            $('#voterApplication').hide();
-            if (!$('#applicationStatus').is(':visible')) {
-                $('#applicationStatus').show();
-                $('#statusMessage').text('You are an approved voter.');
-            }
-        } else if (isVoterApplied) {
-            $('#voterApplication').hide();
-            if (!$('#applicationStatus').is(':visible')) {
-                $('#applicationStatus').show();
-                $('#statusMessage').text('Your voter application is pending approval.');
-            }
+        $('#statusMessage').text(message);
+        
+        if (showCandidateOption) {
+            $('#showCandidateApplication').show();
+        } else {
+            $('#showCandidateApplication').hide();
         }
+    
+        if (showVoterOption) {
+            $('#showVoterApplication').show();
+        } else {
+            $('#showVoterApplication').hide();
+        }
+
+        if (showCandidateOption || showVoterOption) {
+            $('#applicationOptions').show();
+        }
+    },
+
+    showCandidateApplication: function() {
+        $('#candidateApplication').show();
+        $('#voterApplication').hide();
+    },
+
+    showVoterApplication: function() {
+        $('#candidateApplication').hide();
+        $('#voterApplication').show();
     },
 
     loadQuestions: async function() {

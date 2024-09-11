@@ -1,5 +1,7 @@
 $(document).ready(function() {
     App.init().then(function() {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Admin.init();
     });
 });
@@ -8,7 +10,6 @@ const Admin = {
     init: async function() {
         await this.checkAdminStatus();
         this.bindEvents();
-        App.renderNavbar('Admin');
         await this.loadElectionTime();
         await this.loadCandidates();
         await this.loadVoters();
@@ -37,6 +38,7 @@ const Admin = {
         
         if (electionStatus === "Not set") {
             $('#currentElectionTime').html('<p>Election time has not been set yet.</p>');
+            $('#electionTimeFormContainer').show();
         } else {
             $('#currentElectionTime').html(`
                 <p><strong>Current Start Time:</strong> ${new Date(electionTime.start).toLocaleString()}</p>
@@ -45,9 +47,10 @@ const Admin = {
         }
     
         if (electionStatus !== "Not set" && electionStatus !== "Not started") {
-            $('#setElectionTimeForm').hide();
             $('#currentElectionTime').append('<p class="text-danger">Election has already started or ended. Time cannot be changed.</p>');
         } else {
+            $('#electionTimeFormContainer').show();
+            
             // Set minimum date for start time to be current date and time
             const now = new Date();
             const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -102,11 +105,11 @@ const Admin = {
         $('#approvedCandidatesList').empty();
         for (let address of approvedCandidates) {
             const candidate = await App.election.candidates(address);
-            const removeButton = electionStatus === "Not started" ? 
+            const removeButton = electionStatus === "Not started" || electionStatus === "Not set" ? 
                 `<button class="btn btn-sm btn-danger removeCandidate" data-address="${address}">Remove</button>` : '';
             $('#approvedCandidatesList').append(`
                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                    ${candidate.name} (${candidate.party})
+                    ${candidate.name} (${candidate.party}) - ${address}
                     ${removeButton}
                 </li>
             `);
@@ -118,7 +121,7 @@ const Admin = {
                 const candidate = await App.election.candidates(address);
                 $('#candidateApplicationsList').append(`
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        ${candidate.name} (${candidate.party})
+                        ${candidate.name} (${candidate.party}) - ${address}
                         <div>
                             <button class="btn btn-sm btn-success approveCandidate" data-address="${address}">Approve</button>
                             <button class="btn btn-sm btn-danger rejectCandidate" data-address="${address}">Reject</button>
@@ -138,7 +141,7 @@ const Admin = {
     
         $('#approvedVotersList').empty();
         for (let hashedAddress of approvedVoters) {
-            const removeButton = electionStatus === "Not started" ? 
+            const removeButton = electionStatus === "Not started" || electionStatus === "Not set" ? 
                 `<button class="btn btn-sm btn-danger removeVoter" data-address="${hashedAddress}">Remove</button>` : '';
             $('#approvedVotersList').append(`
                 <li class="list-group-item d-flex justify-content-between align-items-center">

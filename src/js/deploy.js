@@ -1,5 +1,7 @@
 $(document).ready(function() {
     App.init().then(function() {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Deploy.init();
     });
 });
@@ -7,7 +9,6 @@ $(document).ready(function() {
 const Deploy = {
     init: function() {
         this.bindEvents();
-        App.renderNavbar('Deploy');
         this.addInitialQuestions();
     },
 

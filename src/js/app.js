@@ -104,9 +104,17 @@ const App = {
         try {
             const deployedAddress = localStorage.getItem('electionContractAddress');
             if (deployedAddress) {
+                // Check if the address is a valid contract
+                const code = await web3.eth.getCode(deployedAddress);
+                if (code === '0x' || code === '0x0') {
+                    console.log("The address does not contain a valid contract");
+                    return;
+                }
                 App.contractAddress = deployedAddress;
                 App.election = await App.contracts.Election.at(deployedAddress);
-                console.log("Contract loaded at address:", App.contractAddress);
+                console.log("Contract address:", App.contractAddress);
+                const electionTokenAddress = await App.election.votingToken();
+                console.log("Election token address:", electionTokenAddress);
                 App.userType = await App.checkUserType(App.account);
                 console.log("User type:", App.userType);
             } else {
@@ -119,11 +127,46 @@ const App = {
         }
     },
 
+    handleAccountChange: async function(accounts) {
+        console.log("Account changed:", accounts[0]);
+        App.account = accounts[0];
+        App.userType = await App.checkUserType(App.account);
+        console.log("New user type:", App.userType);
+        App.refreshNavbar();
+        await App.setPage();
+        location.reload();
+    },
+
+    refreshNavbar: function() {
+        const currentPage = window.location.pathname.split("/").pop().split('.')[0];
+        App.renderNavbar(currentPage);
+    },
+
+    checkPageAccess: function() {
+        const currentPage = window.location.pathname.split("/").pop();
+        const pageAccess = {
+            '' : ['guest'],
+            'index.html': ['guest'],
+            'deploy.html': ['guest'],
+            'home.html': ['user', 'candidate', 'voter', 'admin'],
+            'vote.html': ['candidate', 'voter'],
+            'application.html': ['user', 'candidate', 'voter'],
+            'admin.html': ['admin'],
+        };
+    
+        if (!pageAccess[currentPage] || !pageAccess[currentPage].includes(App.userType)) {
+            console.log("Access denied. Redirecting to home.");
+            window.location.href = 'home.html';
+        }
+    },
+
     setPage: async function () {
         if (App.account) {
             if (App.election) {
                 if (window.location.href.includes('index.html') || window.location.href.includes('deploy.html') || window.location.pathname === '/' || window.location.pathname === '') {
                     window.location.href = 'home.html';
+                } else {
+                    App.checkPageAccess();
                 }
             } else if (!window.location.href.includes('deploy.html')) {
                 window.location.href = 'deploy.html';
@@ -150,10 +193,9 @@ const App = {
     },
 
     renderNavbar: function(page) {
-        console.log("Rendering navbar for page:", page, "User type:", App.userType);
         const navbarItemsHTML = App.menuItems.map(item => {
             if (item.visible(App.userType)) {
-                const isActive = item.name === page ? ' active" aria-current="page' : '';
+                const isActive = item.name.toLowerCase() === page ? ' active" aria-current="page' : '';
                 return `
                     <li class="nav-item">
                         <a class="nav-link${isActive}" href="${item.link}">${item.name}</a>
@@ -164,6 +206,7 @@ const App = {
         }).join('');
     
         $('#navbarItems').html(navbarItemsHTML);
+        $('#accountAddress').text("Your Account: " + App.account);
     },
 
     showError: function (message) {
@@ -274,8 +317,7 @@ $(document).ready(function () {
 
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', function (accounts) {
-            App.account = accounts[0];
-            App.setPage();
+            App.handleAccountChange(accounts);
         });
     }
 });

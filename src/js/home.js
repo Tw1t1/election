@@ -1,16 +1,17 @@
-$(document).ready(function() {
-    App.init().then(function() {
+$(document).ready(function () {
+    App.init().then(function () {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Home.init();
     });
 });
 
 const Home = {
-    init: async function() {
+    init: async function () {
         try {
             if (!App.userType || App.userType === 'guest') {
                 App.userType = await App.checkUserType(App.account);
             }
-            App.renderNavbar('Home');
             await this.loadElectionInfo();
         } catch (error) {
             console.error("Error initializing home page:", error);
@@ -18,13 +19,13 @@ const Home = {
         }
     },
 
-    loadElectionInfo: async function() {
+    loadElectionInfo: async function () {
         try {
             $('#contractAddress').text(App.contractAddress);
-    
+
             const electionStatus = await App.getElectionStatus();
             $('#electionStatus').text(electionStatus);
-    
+
             const isTimeSet = await App.isElectionTimeSet();
             if (isTimeSet) {
                 const electionTime = await App.getElectionTime();
@@ -34,7 +35,7 @@ const Home = {
                 $('#startTime').text("Not set");
                 $('#endTime').text("Not set");
             }
-    
+
             // Updated way to get candidate count
             let candidatesCount;
             try {
@@ -45,10 +46,10 @@ const Home = {
                 candidatesCount = 0;
             }
             $('#candidatesCount').text(candidatesCount.toString());
-    
+
             if (App.userType === 'admin') {
                 $('#adminOnlyInfo').show();
-                
+
                 let candidateApplicationsCount;
                 try {
                     candidateApplicationsCount = await App.election.getCandidateApplicationsAddresses();
@@ -58,7 +59,7 @@ const Home = {
                     candidateApplicationsCount = 0;
                 }
                 $('#openCandidateApplications').text(candidateApplicationsCount.toString());
-    
+
                 let voterApplicationsCount;
                 try {
                     voterApplicationsCount = await App.election.getVoterApplicationsAddresses();
@@ -68,7 +69,7 @@ const Home = {
                     voterApplicationsCount = 0;
                 }
                 $('#openVoterApplications').text(voterApplicationsCount.toString());
-    
+
                 let votersCount;
                 try {
                     const voterAddresses = await App.election.getVoterAddresses();
@@ -78,24 +79,46 @@ const Home = {
                     votersCount = 0;
                 }
                 $('#votersCount').text(votersCount.toString());
-    
+
                 const votesCount = await App.election.votesCount();
                 $('#totalVotes').text(votesCount.toString());
-    
+
             }
-            
+
             if (electionStatus === "Ended") {
                 await this.loadResults();
             }
-    
-            $('#accountAddress').text("Your Account: " + App.account);
+
         } catch (error) {
             console.error("Error loading election info:", error);
             App.showError("Failed to load election information. Please try again later.");
         }
     },
 
-    loadResults: async function() {
+    /*
+        * known issue: when the election is ended, but the block.timestamp is not updated, the results will not be displayed
+        * this is because the block.timestamp is used to determine if the election has ended
+        * to fix this, we can trigger a new block to update the block.timestamp value
+        * this can be done by sending a transaction from one account to another
+        * this is only for testing purposes and should be removed in production environment
+        * a solution to this issue in production environment is to add to the contract a function that the admin will call to end the election
+        * and that function will emit an event that the front-end will listen to and update the election status accordingly
+        * and that will also update the block.timestamp value
+    */
+    loadResults: async function () {
+        // TODO - Remove this line in production environment as it is only for testing purposes
+        // This line is used to trigger a new block to update the block.timestamp value
+        const latestBlock = await web3.eth.getBlock('latest');
+        const blockTimestamp = Number(latestBlock.timestamp);
+        const electionTime = await App.getElectionTime();
+        const electionEndTime = electionTime.end / 1000;
+        const electionStatus = await App.getElectionStatus();
+        if (blockTimestamp <= electionEndTime && electionStatus === "Ended") {
+            console.log("Triggering new block to update block.timestamp value...");
+            await this.triggerNewBlock();
+        }
+
+
         try {
             const result = await App.election.getResults();
             candidates = result['0'];
@@ -114,5 +137,16 @@ const Home = {
             console.error("Error loading results:", error);
             App.showError("Failed to load election results. Please try again later.");
         }
+    },
+
+    // TODO - Remove this function in production environment as it is only for testing purposes
+    // This function is used to trigger a new block to update the block.timestamp value
+    triggerNewBlock: async function () {
+        const accounts = await web3.eth.getAccounts();
+        await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: accounts[1],
+            value: web3.utils.toWei('0.001', 'ether')
+        });
     }
 };

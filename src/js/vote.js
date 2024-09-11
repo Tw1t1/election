@@ -1,5 +1,7 @@
 $(document).ready(function() {
     App.init().then(function() {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Vote.init();
     });
 });
@@ -7,9 +9,9 @@ $(document).ready(function() {
 const Vote = {
     hasVoted: false,
     votedFor: null,
+    votingMethod: null,
 
     init: async function() {
-        App.renderNavbar('Vote');
         const electionStatus = await App.getElectionStatus();
         if (electionStatus !== "In progress") {
             $('#content').html('<p>Voting is not currently available. Election status: ' + electionStatus + '</p>');
@@ -32,15 +34,20 @@ const Vote = {
     checkVotingStatus: async function() {
         const voter = await App.election.voters(web3.utils.keccak256(App.account));
         this.hasVoted = voter.hasVoted;
+        this.votingMethod = voter.votingMethod;
         if (this.hasVoted) {
             this.votedFor = voter.votedFor;
             $('#alreadyVotedSection').show();
-            if (this.votedFor !== '0x0000000000000000000000000000000000000000') {
+            if (this.votingMethod === 'candidate') {
                 const candidate = await App.election.candidates(this.votedFor);
                 $('#votedForCandidate').text(candidate.name);
                 $('#votedForSection').show();
             }
             $('#votingOptions, #candidateVotingSection, #opinionVotingSection').hide();
+        }
+        else {
+            $('#votingOptions').show();
+            this.toggleVotingSection();
         }
     },
 

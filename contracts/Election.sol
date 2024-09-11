@@ -78,27 +78,24 @@ contract Election is ElectionBase {
         voterApplicationsAddresses.push(hashAddress);
     }
 
-    function approveVoter(address _voterAddress) public onlyOwner onlyBeforeElection {
-        bytes32 hashAddress = hashedAddress(_voterAddress);
-        require(voterApplications[hashAddress] && !voters[hashAddress].approved, "Invalid voter");
-        voters[hashAddress] = Voter(true, false, address(0), new uint8[](0));
-        voterAddresses.push(hashAddress);
-        delete voterApplications[hashAddress];
-        removeFromArray(voterApplicationsAddresses, hashAddress);
+    function approveVoter(bytes32 _voterhashAddress) public onlyOwner onlyBeforeElection {
+        require(voterApplications[_voterhashAddress] && !voters[_voterhashAddress].approved, "Invalid voter");
+        voters[_voterhashAddress] = Voter(true, false, address(0), new uint8[](0));
+        voterAddresses.push(_voterhashAddress);
+        delete voterApplications[_voterhashAddress];
+        removeFromArray(voterApplicationsAddresses, _voterhashAddress);
     }
 
-    function rejectVoter(address _voterAddress) public onlyOwner onlyBeforeElection {
-        bytes32 hashAddress = hashedAddress(_voterAddress);
-        require(voterApplications[hashAddress], "No application found");
-        delete voterApplications[hashAddress];
-        removeFromArray(voterApplicationsAddresses, hashAddress);
+    function rejectVoter(bytes32 _voterhashAddress) public onlyOwner onlyBeforeElection {
+        require(voterApplications[_voterhashAddress], "No application found");
+        delete voterApplications[_voterhashAddress];
+        removeFromArray(voterApplicationsAddresses, _voterhashAddress);
     }
 
-    function removeVoter(address _voterAddress) public onlyOwner onlyBeforeElection {
-        bytes32 hashAddress = hashedAddress(_voterAddress);
-        require(voters[hashAddress].approved, "Voter not found or not approved");
-        delete voters[hashAddress];
-        removeFromArray(voterAddresses, hashAddress);
+    function removeVoter(bytes32 _voterhashAddress) public onlyOwner onlyBeforeElection {
+        require(voters[_voterhashAddress].approved, "Voter not found or not approved");
+        delete voters[_voterhashAddress];
+        removeFromArray(voterAddresses, _voterhashAddress);
     }
 
     function setElectionTime(uint256 _start, uint256 _end) public onlyOwner onlyBeforeElection {

@@ -1,292 +1,304 @@
 const Election = artifacts.require("Election");
 const ElectionToken = artifacts.require("ElectionToken");
-const { expectRevert, time } = require('@openzeppelin/test-helpers');
-const { web3 } = require('@openzeppelin/test-helpers/src/setup');
 
-contract("Election", (accounts) => {
-    let election;
-    const owner = accounts[0];
-    const voter1 = accounts[1];
-    const voter2 = accounts[2];
-    const candidate1 = accounts[3];
-    const candidate2 = accounts[4];
+const { BN, expectEvent, expectRevert, time } = require('@openzeppelin/test-helpers');
+const { expect } = require('chai');
 
-    const questions = ["Q1", "Q2", "Q3"];
-    const answerOptions = [
-        ["1", "2", "3", "4", "5"],
-        ["1", "2", "3", "4", "5"],
-        ["1", "2", "3", "4", "5"]
-    ];
-    const tokenSupply = web3.utils.toWei("1000", "ether");
+contract("Election", function (accounts) {
+  const [owner, addr1, addr2, ...addrs] = accounts;
 
-    beforeEach(async () => {
-        election = await Election.new(questions, answerOptions, tokenSupply, { from: owner });
+  let election;
+  let electionToken;
+
+  beforeEach(async function () {
+    const electionName = "Test Election";
+    const questions = ["Question 1", "Question 2"];
+    const answerOptions = [["Option 1", "Option 2"], ["Option A", "Option B", "Option C"]];
+
+    election = await Election.new(electionName, questions, answerOptions);
+    const tokenAddress = await election.votingToken();
+    electionToken = await ElectionToken.at(tokenAddress);
+  });
+
+  describe("Deployment", function () {
+    it("Should set the right owner", async function () {
+      expect(await election.owner()).to.equal(owner);
     });
 
-    describe("Deployment", () => {
-        it("should deploy the contract correctly", async () => {
-            assert.ok(election.address);
-        });
-
-        it("should set the correct owner", async () => {
-            const contractOwner = await election.owner();
-            assert.equal(contractOwner, owner);
-        });
-
-        it("should initialize with the correct questions and answer options", async () => {
-            const q1 = await election.questions(0);
-            assert.equal(q1, questions[0]);
-
-            const a1 = await election.answerOptions(0, 0);
-            assert.equal(a1, answerOptions[0][0]);
-        });
+    it("Should set the correct election name", async function () {
+      expect(await election.electionName()).to.equal("Test Election");
     });
 
-    describe("Adding candidates and voters", () => {
-        it("should allow the owner to add a candidate", async () => {
-            await election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner });
-            const candidate = await election.candidates(candidate1);
-            assert.equal(candidate.name, "Candidate 1");
-        });
+    it("Should set the correct questions and answer options", async function () {
+      expect(await election.getQuestions()).to.deep.equal(["Question 1", "Question 2"]);
+      expect(await election.getAnswerOptions(0)).to.deep.equal(["Option 1", "Option 2"]);
+      expect(await election.getAnswerOptions(1)).to.deep.equal(["Option A", "Option B", "Option C"]);
+    });
+  });
 
-
-        it("should not allow non-owners to add a candidate", async () => {
-            await expectRevert.unspecified(
-                election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: voter1 })
-            );
-        });
-
-        it("should allow the owner to add a voter", async () => {
-            await election.addVoter(voter1, { from: owner });
-            const voterHash = web3.utils.soliditySha3(voter1);
-            const isRegistered = await election.voterBook(voterHash);
-            assert.equal(isRegistered, true);
-        });
-
-        it("should not allow non-owners to add a voter", async () => {
-            await expectRevert.unspecified(
-                election.addVoter(voter1, { from: voter2 })
-            );
-        });
-
-        it("should not allow adding a candidate after election has started", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-
-            await expectRevert(
-                election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner }),
-                "Election has already started"
-            );
-        });
-
-        it("should not allow adding a voter after election has started", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-
-            await expectRevert(
-                election.addVoter(voter1, { from: owner }),
-                "Election has already started"
-            );
-        });
+  describe("Candidate Management", function () {
+    it("Should allow a user to apply as a candidate", async function () {
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      const applications = await election.getCandidateApplicationsAddresses();
+      expect(applications).to.include(addr1);
     });
 
-    describe("Setting voting time", () => {
-        it("should allow the owner to set voting time", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-            const votingStart = await election.votingStart();
-            const votingEnd = await election.votingEnd();
-            assert.equal(votingStart.toString(), start.toString());
-            assert.equal(votingEnd.toString(), end.toString());
-        });
-
-        it("should not allow setting voting time in the past", async () => {
-            const start = (await time.latest()).sub(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await expectRevert(
-                election.setVotingTime(start, end, { from: owner }),
-                "Voting start time must be in the future"
-            );
-        });
-
-        it("should not allow non-owners to set voting time", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await expectRevert.unspecified(
-                election.setVotingTime(start, end, { from: voter1 })
-            );
-        });
-
-        it("should not allow setting voting time after election has started", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-
-            const newStart = (await time.latest()).add(time.duration.days(2));
-            const newEnd = newStart.add(time.duration.days(7));
-            await expectRevert(
-                election.setVotingTime(newStart, newEnd, { from: owner }),
-                "Election has already started"
-            );
-        });
+    it("Should not allow the owner to apply as a candidate", async function () {
+      await expectRevert(
+        election.applyForCandidate("Owner", "Party O", [0, 0], { from: owner }),
+        "Invalid application"
+      );
     });
 
-    describe("Voting", () => {
-        beforeEach(async () => {
-            await election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner });
-            await election.addCandidate(candidate2, "Candidate 2", "Party B", [1, 2, 3], { from: owner });
-            await election.addVoter(voter1, { from: owner });
-            await election.addVoter(voter2, { from: owner });
-        });
-
-        it("should not allow voting before the voting period starts", async () => {
-            const start = (await time.latest()).add(time.duration.days(1));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-
-            await expectRevert(
-                election.vote(candidate1, { from: voter1 }),
-                "Voting is not currently open"
-            );
-        });
-
-        describe("During voting period", () => {
-            beforeEach(async () => {
-                const start = (await time.latest()).add(time.duration.seconds(10));
-                const end = start.add(time.duration.days(7));
-                await election.setVotingTime(start, end, { from: owner });
-                await time.increase(time.duration.seconds(11));
-            });
-
-            it("should allow a registered voter to vote", async () => {
-                await election.vote(candidate1, { from: voter1 });
-                const voter = await election.voters(voter1);
-                assert.equal(voter.hasVoted, true);
-                assert.equal(voter.votedFor, candidate1);
-            });
-
-            it("should not allow an unregistered voter to vote", async () => {
-                await expectRevert(
-                    election.vote(candidate1, { from: accounts[5] }),
-                    "You are not registered to vote"
-                );
-            });
-
-            it("should not allow a voter to vote twice", async () => {
-                await election.vote(candidate1, { from: voter1 });
-                await expectRevert(
-                    election.vote(candidate2, { from: voter1 }),
-                    "You have already voted"
-                );
-            });
-
-            it("should allow a voter to vote by opinion", async () => {
-                await election.voteByOpinion([3, 4, 5], { from: voter1 });
-                const voter = await election.voters(voter1);
-                assert.equal(voter.hasVoted, true);
-                assert.equal(voter.votedFor, candidate1);
-            });
-
-            it("should transfer a token to the voter after voting", async () => {
-                const tokenAddress = await election.votingToken();
-                const token = await ElectionToken.at(tokenAddress);
-                const balanceBefore = await token.balanceOf(voter1);
-                await election.vote(candidate1, { from: voter1 });
-                const balanceAfter = await token.balanceOf(voter1);
-                assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei("1", "ether"));
-            });
-
-            it("should not allow voting after the voting period ends", async () => {
-                await time.increase(time.duration.days(8));
-                await expectRevert(
-                    election.vote(candidate1, { from: voter1 }),
-                    "Voting is not currently open"
-                );
-            });
-        });
+    it("Should allow the owner to approve a candidate", async function () {
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.approveCandidate(addr1, { from: owner });
+      const candidate = await election.candidates(addr1);
+      expect(candidate.approved).to.be.true;
     });
 
-    describe("Getting results", () => {
-        beforeEach(async () => {
-            await election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner });
-            await election.addCandidate(candidate2, "Candidate 2", "Party B", [1, 2, 3], { from: owner });
-            await election.addVoter(voter1, { from: owner });
-            await election.addVoter(voter2, { from: owner });
-
-            const start = (await time.latest()).add(time.duration.seconds(10));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-            await time.increase(time.duration.seconds(11));
-
-            await election.vote(candidate1, { from: voter1 });
-            await election.vote(candidate2, { from: voter2 });
-        });
-
-        it("should not allow getting results before voting ends", async () => {
-            await expectRevert(
-                election.getResults(),
-                "Voting has not ended yet"
-            );
-        });
-
-        it("should return correct results after voting ends", async () => {
-            await time.increase(time.duration.days(8));
-            const result = await election.getResults();
-            const sortedCandidates = result[0];
-            const voteCounts = result[1];
-            assert.equal(sortedCandidates.length, 2);
-            assert.equal(voteCounts[0].toString(), "1");
-            assert.equal(voteCounts[1].toString(), "1");
-        });
-
-        it("should return the correct winner", async () => {
-            await time.increase(time.duration.days(8));
-            const winner = await election.getWinner();
-            assert.ok(winner === candidate1 || winner === candidate2);
-        });
+    it("Should allow the owner to reject a candidate", async function () {
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.rejectCandidate(addr1, { from: owner });
+      const applications = await election.getCandidateApplicationsAddresses();
+      expect(applications).to.not.include(addr1);
     });
 
-    describe("Edge cases", () => {
-        it("should handle ties correctly", async () => {
-            await election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner });
-            await election.addCandidate(candidate2, "Candidate 2", "Party B", [1, 2, 3], { from: owner });
-            await election.addVoter(voter1, { from: owner });
-            await election.addVoter(voter2, { from: owner });
-
-            const start = (await time.latest()).add(time.duration.seconds(10));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-            await time.increase(time.duration.seconds(11));
-
-            await election.vote(candidate1, { from: voter1 });
-            await election.vote(candidate2, { from: voter2 });
-
-            await time.increase(time.duration.days(8));
-            const result = await election.getResults();
-            const sortedCandidates = result[0];
-            const voteCounts = result[1];
-
-            assert.equal(voteCounts[0].toString(), voteCounts[1].toString(), "Vote counts should be equal in a tie");
-            assert.ok(sortedCandidates[0] === candidate1 || sortedCandidates[0] === candidate2, "Either candidate could be first in a tie");
-        });
-
-        it("should handle an election with no votes", async () => {
-            await election.addCandidate(candidate1, "Candidate 1", "Party A", [3, 4, 5], { from: owner });
-            await election.addCandidate(candidate2, "Candidate 2", "Party B", [1, 2, 3], { from: owner });
-
-            const start = (await time.latest()).add(time.duration.seconds(10));
-            const end = start.add(time.duration.days(7));
-            await election.setVotingTime(start, end, { from: owner });
-            await time.increase(time.duration.days(8));
-
-            const result = await election.getResults();
-            const voteCounts = result[1];
-
-            assert.equal(voteCounts[0].toString(), "0", "Vote count should be zero");
-            assert.equal(voteCounts[1].toString(), "0", "Vote count should be zero");
-        });
+    it("Should allow the owner to remove an approved candidate", async function () {
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.approveCandidate(addr1, { from: owner });
+      await election.removeCandidate(addr1, { from: owner });
+      const candidateAddresses = await election.getCandidateAddresses();
+      expect(candidateAddresses).to.not.include(addr1);
     });
+  });
+
+  describe("Voter Management", function () {
+    it("Should allow a user to apply as a voter", async function () {
+      await election.applyForVoter({ from: addr1 });
+      const applications = await election.getVoterApplicationsAddresses();
+      expect(applications).to.include(web3.utils.keccak256(addr1));
+    });
+
+    it("Should not allow the owner to apply as a voter", async function () {
+      await expectRevert(
+        election.applyForVoter({ from: owner }),
+        "Invalid application"
+      );
+    });
+
+    it("Should allow the owner to approve a voter", async function () {
+      await election.applyForVoter({ from: addr1 });
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.approveVoter(hashedAddr1, { from: owner });
+      const voter = await election.voters(hashedAddr1);
+      expect(voter.approved).to.be.true;
+    });
+
+    it("Should allow the owner to reject a voter", async function () {
+      await election.applyForVoter({ from: addr1 });
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.rejectVoter(hashedAddr1, { from: owner });
+      const applications = await election.getVoterApplicationsAddresses();
+      expect(applications).to.not.include(hashedAddr1);
+    });
+
+    it("Should allow the owner to remove an approved voter", async function () {
+      await election.applyForVoter({ from: addr1 });
+      hashedAddr1 = web3.utils.keccak256(addr1);
+      await election.approveVoter(hashedAddr1, { from: owner });
+      await election.removeVoter(hashedAddr1, { from: owner });
+      const voterAddresses = await election.getVoterAddresses();
+      expect(voterAddresses).to.not.include(hashedAddr1);
+    });
+  });
+
+  describe("Election Management", function () {
+    it("Should allow the owner to set election times", async function () {
+      const start = (await time.latest()).add(time.duration.hours(1));
+      const end = start.add(time.duration.days(1));
+      await election.setElectionTime(start, end, { from: owner });
+      const setStart = await election.electionStartTime();
+      const setEnd = await election.electionEndTime();
+      expect(setStart.toString()).to.equal(start.toString());
+      expect(setEnd.toString()).to.equal(end.toString());
+    });
+
+    it("Should not allow setting invalid election times", async function () {
+      const start = (await time.latest()).sub(time.duration.hours(1));
+      const end = (await time.latest()).add(time.duration.hours(1));
+      await expectRevert(
+        election.setElectionTime(start, end, { from: owner }),
+        "Invalid election times"
+      );
+    });
+  });
+
+  describe("Voting Process", function () {
+    let start, end;
+
+    beforeEach(async function () {
+      // Setup candidates and voters
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.applyForCandidate("Candidate 2", "Party B", [1, 2], { from: addr2 });
+      await election.approveCandidate(addr1, { from: owner });
+      await election.approveCandidate(addr2, { from: owner });
+
+      for (let i = 0; i < 5; i++) {
+        await election.applyForVoter({ from: addrs[i] });
+        await election.approveVoter(web3.utils.keccak256(addrs[i]), { from: owner });
+      }
+
+      // Set election times
+      start = (await time.latest()).add(time.duration.seconds(100));
+      end = start.add(time.duration.days(1));
+      await election.setElectionTime(start, end, { from: owner });
+    });
+
+    it("Should not allow voting before election starts", async function () {
+      await expectRevert(
+        election.vote(addr1, { from: addrs[0] }),
+        "Not during election period"
+      );
+    });
+
+    it("Should allow voting during election period", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await election.vote(addr1, { from: addrs[0] });
+      const voter = await election.voters(web3.utils.keccak256(addrs[0]));
+      expect(voter.hasVoted).to.be.true;
+      expect(voter.votedFor).to.equal(addr1);
+    });
+
+    it("Should not allow voting after election ends", async function () {
+      await time.increaseTo(end.add(time.duration.seconds(1)));
+      await expectRevert(
+        election.vote(addr1, { from: addrs[0] }),
+        "Not during election period"
+      );
+    });
+
+    it("Should not allow voting for non-approved candidates", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await expectRevert(
+        election.vote(addrs[5], { from: addrs[0] }),
+        "Invalid candidate"
+      );
+    });
+
+    it("Should not allow voting twice", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await election.vote(addr1, { from: addrs[0] });
+      await expectRevert(
+        election.vote(addr2, { from: addrs[0] }),
+        "Not eligible to vote"
+      );
+    });
+
+    it("Should allow voting by opinion", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await election.voteByOpinion([0, 1], { from: addrs[0] });
+      hashedAddr0 = web3.utils.keccak256(addrs[0]);
+      const voter = await election.voters(hashedAddr0);
+      expect(voter.hasVoted).to.be.true;
+      const opinions = await election.getVoterOpinions(hashedAddr0);
+      expect(opinions.map(o => o.toString())).to.deep.equal(['0', '1']);
+    });
+
+    it("Should not allow voting by opinion with invalid number of opinions", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await expectRevert(
+        election.voteByOpinion([0], { from: addrs[0] }),
+        "Invalid number of opinions"
+      );
+    });
+
+    it("Should not allow voting by opinion with invalid opinion values", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await expectRevert(
+        election.voteByOpinion([0, 3], { from: addrs[0] }),
+        "Invalid opinion value"
+      );
+    });
+  });
+
+  describe("Results", function () {
+    let start, end;
+
+    beforeEach(async function () {
+      // Setup candidates and voters
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.applyForCandidate("Candidate 2", "Party B", [1, 2], { from: addr2 });
+      await election.approveCandidate(addr1, { from: owner });
+      await election.approveCandidate(addr2, { from: owner });
+
+      for (let i = 0; i < 5; i++) {
+        await election.applyForVoter({ from: addrs[i] });
+        await election.approveVoter(web3.utils.keccak256(addrs[i]), { from: owner });
+      }
+
+      // Set election times
+      start = (await time.latest()).add(time.duration.seconds(100));
+      end = start.add(time.duration.days(1));
+      await election.setElectionTime(start, end, { from: owner });
+
+      // Cast votes
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+      await election.vote(addr1, { from: addrs[0] });
+      await election.vote(addr1, { from: addrs[1] });
+      await election.vote(addr2, { from: addrs[2] });
+    });
+
+    it("Should not allow getting results before election ends", async function () {
+      await expectRevert(
+        election.getResults(),
+        "Election has not ended yet"
+      );
+    });
+
+    it("Should return correct results after election ends", async function () {
+      await time.increaseTo(end.add(time.duration.seconds(1)));
+      const result = await election.getResults();
+          
+      // The result is an array-like object with numeric keys
+      const candidates = result['0'];
+      const voteCounts = result['1'];
+    
+      expect(candidates[0]).to.equal(addr1);
+      expect(candidates[1]).to.equal(addr2);
+      expect(voteCounts[0].toString()).to.equal('2');
+      expect(voteCounts[1].toString()).to.equal('1');
+    });
+  });
+
+  describe("Token Rewards", function () {
+    let start, end;
+
+    beforeEach(async function () {
+      // Setup candidates and voters
+      await election.applyForCandidate("Candidate 1", "Party A", [0, 1], { from: addr1 });
+      await election.approveCandidate(addr1, { from: owner });
+
+      await election.applyForVoter({ from: addr2 });
+      await election.approveVoter(web3.utils.keccak256(addr2), { from: owner });
+
+      // Set election times
+      start = (await time.latest()).add(time.duration.seconds(100));
+      end = start.add(time.duration.days(1));
+      await election.setElectionTime(start, end, { from: owner });
+    });
+
+    it("Should reward voters with tokens after voting", async function () {
+      await time.increaseTo(start.add(time.duration.seconds(1)));
+
+      const tx = await election.vote(addr1, { from: addr2 });
+      expectEvent(tx, 'VoterRewarded', {
+        voter: addr2,
+        amount: new BN(web3.utils.toWei('0.1', 'ether'))
+      });
+
+      const balance = await electionToken.balanceOf(addr2);
+      expect(balance.toString()).to.equal(web3.utils.toWei('0.1', 'ether'));
+    });
+  });
 });

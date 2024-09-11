@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election DApp - Admin</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Election DApp</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul id="navbarItems" class="navbar-nav">
+                    <!-- Navbar items will be dynamically inserted here -->
+                </ul>
+            </div>
+            <span id="accountAddress" class="navbar-text"></span>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1>Admin Panel</h1>
+        <div id="errorMessage" class="alert alert-danger" style="display: none"></div>
+        <div id="loader" class="text-center" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+        <div id="content" style="display: none">
+            <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="election-time-tab" data-toggle="tab" href="#election-time" role="tab">Set Election Time</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="candidates-tab" data-toggle="tab" href="#candidates" role="tab">Candidates</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="voters-tab" data-toggle="tab" href="#voters" role="tab">Voters</a>
+                </li>
+            </ul>
+            <div class="tab-content mt-3" id="adminTabContent">
+                <div class="tab-pane fade show active" id="election-time" role="tabpanel">
+                    <h3>Set Election Time</h3>
+                    <div id="currentElectionTime"></div>
+                    <div id="electionTimeFormContainer" style="display: none;">
+                        <form id="setElectionTimeForm">
+                            <div class="form-group">
+                                <label for="startTime">Start Time</label>
+                                <input type="datetime-local" class="form-control" id="startTime" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="endTime">End Time</label>
+                                <input type="datetime-local" class="form-control" id="endTime" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Set Election Time</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="candidates" role="tabpanel">
+                    <h3>Candidates</h3>
+                    <h4>Approved Candidates</h4>
+                    <ul id="approvedCandidatesList" class="list-group"></ul>
+                    <h4 class="mt-4">Candidate Applications</h4>
+                    <ul id="candidateApplicationsList" class="list-group"></ul>
+                </div>
+                <div class="tab-pane fade" id="voters" role="tabpanel">
+                    <h3>Voters</h3>
+                    <h4>Approved Voters</h4>
+                    <ul id="approvedVotersList" class="list-group"></ul>
+                    <h4 class="mt-4">Voter Applications</h4>
+                    <ul id="voterApplicationsList" class="list-group"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

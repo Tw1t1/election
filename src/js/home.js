@@ -1,12 +1,17 @@
-$(document).ready(function() {
-    App.init().then(function() {
+$(document).ready(function () {
+    App.init().then(function () {
+        App.checkPageAccess();
+        App.refreshNavbar();
         Home.init();
     });
 });
 
 const Home = {
-    init: async function() {
+    init: async function () {
         try {
+            if (!App.userType || App.userType === 'guest') {
+                App.userType = await App.checkUserType(App.account);
+            }
             await this.loadElectionInfo();
         } catch (error) {
             console.error("Error initializing home page:", error);
@@ -14,59 +19,134 @@ const Home = {
         }
     },
 
-    loadElectionInfo: async function() {
+    loadElectionInfo: async function () {
         try {
             $('#contractAddress').text(App.contractAddress);
 
-            const votersCount = await App.election.getVotersCount();
-            $('#totalVoters').text(votersCount.toString());
+            const electionStatus = await App.getElectionStatus();
+            $('#electionStatus').text(electionStatus);
 
-            const candidatesCount = await App.election.getCandidateCount();
-            $('#totalCandidates').text(candidatesCount.toString());
-
-            try {
-                const votingTime = await App.election.getVotingTime();
-                let startTime, endTime;
-
-                if (Array.isArray(votingTime) && votingTime.length === 2) {
-                    [startTime, endTime] = votingTime.map(time => time.toNumber());
-                } else if (typeof votingTime === 'object') {
-                    startTime = (votingTime.start || votingTime[0]).toNumber();
-                    endTime = (votingTime.end || votingTime[1]).toNumber();
-                } else {
-                    throw new Error("Unexpected voting time format");
-                }
-
-                const currentTime = Math.floor(Date.now() / 1000);
-
-                if (startTime === 0 && endTime === 0) {
-                    $('#votingStatus').text("Not initialized");
-                    $('#votingStartTime').text("Not set");
-                    $('#votingEndTime').text("Not set");
-                } else if (currentTime < startTime) {
-                    $('#votingStatus').text("Not started");
-                    $('#votingStartTime').text(new Date(startTime * 1000).toLocaleString());
-                    $('#votingEndTime').text(new Date(endTime * 1000).toLocaleString());
-                } else if (currentTime >= startTime && currentTime <= endTime) {
-                    $('#votingStatus').text("In progress");
-                    $('#votingStartTime').text(new Date(startTime * 1000).toLocaleString());
-                    $('#votingEndTime').text(new Date(endTime * 1000).toLocaleString());
-                } else {
-                    $('#votingStatus').text("Ended");
-                    $('#votingStartTime').text(new Date(startTime * 1000).toLocaleString());
-                    $('#votingEndTime').text(new Date(endTime * 1000).toLocaleString());
-                }
-            } catch (error) {
-                console.error("Error getting voting time:", error);
-                $('#votingStatus').text("Not initialized");
-                $('#votingStartTime').text("Not set");
-                $('#votingEndTime').text("Not set");
+            const isTimeSet = await App.isElectionTimeSet();
+            if (isTimeSet) {
+                const electionTime = await App.getElectionTime();
+                $('#startTime').text(new Date(electionTime.start).toLocaleString());
+                $('#endTime').text(new Date(electionTime.end).toLocaleString());
+            } else {
+                $('#startTime').text("Not set");
+                $('#endTime').text("Not set");
             }
 
-            $('#accountAddress').text("Your Account: " + App.account);
+            // Updated way to get candidate count
+            let candidatesCount;
+            try {
+                candidatesCount = await App.election.getCandidateAddresses();
+                candidatesCount = Array.isArray(candidatesCount) ? candidatesCount.length : 0;
+            } catch (error) {
+                console.error("Error getting candidate addresses:", error);
+                candidatesCount = 0;
+            }
+            $('#candidatesCount').text(candidatesCount.toString());
+
+            if (App.userType === 'admin') {
+                $('#adminOnlyInfo').show();
+
+                let candidateApplicationsCount;
+                try {
+                    candidateApplicationsCount = await App.election.getCandidateApplicationsAddresses();
+                    candidateApplicationsCount = Array.isArray(candidateApplicationsCount) ? candidateApplicationsCount.length : 0;
+                } catch (error) {
+                    console.error("Error getting candidate applications:", error);
+                    candidateApplicationsCount = 0;
+                }
+                $('#openCandidateApplications').text(candidateApplicationsCount.toString());
+
+                let voterApplicationsCount;
+                try {
+                    voterApplicationsCount = await App.election.getVoterApplicationsAddresses();
+                    voterApplicationsCount = Array.isArray(voterApplicationsCount) ? voterApplicationsCount.length : 0;
+                } catch (error) {
+                    console.error("Error getting voter applications:", error);
+                    voterApplicationsCount = 0;
+                }
+                $('#openVoterApplications').text(voterApplicationsCount.toString());
+
+                let votersCount;
+                try {
+                    const voterAddresses = await App.election.getVoterAddresses();
+                    votersCount = Array.isArray(voterAddresses) ? voterAddresses.length : 0;
+                } catch (error) {
+                    console.error("Error getting voter addresses:", error);
+                    votersCount = 0;
+                }
+                $('#votersCount').text(votersCount.toString());
+
+                const votesCount = await App.election.votesCount();
+                $('#totalVotes').text(votesCount.toString());
+
+            }
+
+            if (electionStatus === "Ended") {
+                await this.loadResults();
+            }
+
         } catch (error) {
             console.error("Error loading election info:", error);
-            throw error;
+            App.showError("Failed to load election information. Please try again later.");
         }
+    },
+
+    /*
+        * known issue: when the election is ended, but the block.timestamp is not updated, the results will not be displayed
+        * this is because the block.timestamp is used to determine if the election has ended
+        * to fix this, we can trigger a new block to update the block.timestamp value
+        * this can be done by sending a transaction from one account to another
+        * this is only for testing purposes and should be removed in production environment
+        * a solution to this issue in production environment is to add to the contract a function that the admin will call to end the election
+        * and that function will emit an event that the front-end will listen to and update the election status accordingly
+        * and that will also update the block.timestamp value
+    */
+    loadResults: async function () {
+        // TODO - Remove this line in production environment as it is only for testing purposes
+        // This line is used to trigger a new block to update the block.timestamp value
+        const latestBlock = await web3.eth.getBlock('latest');
+        const blockTimestamp = Number(latestBlock.timestamp);
+        const electionTime = await App.getElectionTime();
+        const electionEndTime = electionTime.end / 1000;
+        const electionStatus = await App.getElectionStatus();
+        if (blockTimestamp <= electionEndTime && electionStatus === "Ended") {
+            console.log("Triggering new block to update block.timestamp value...");
+            await this.triggerNewBlock();
+        }
+
+
+        try {
+            const result = await App.election.getResults();
+            candidates = result['0'];
+            voteCounts = result['1'];
+            const resultsList = $('#resultsList');
+            resultsList.empty();
+
+            for (let i = 0; i < candidates.length; i++) {
+                const candidateInfo = await App.election.candidates(candidates[i]);
+                const listItem = $('<li>').text(`${candidateInfo.name} (${candidateInfo.party}): ${voteCounts[i]} votes`);
+                resultsList.append(listItem);
+            }
+
+            $('#resultsSection').show();
+        } catch (error) {
+            console.error("Error loading results:", error);
+            App.showError("Failed to load election results. Please try again later.");
+        }
+    },
+
+    // TODO - Remove this function in production environment as it is only for testing purposes
+    // This function is used to trigger a new block to update the block.timestamp value
+    triggerNewBlock: async function () {
+        const accounts = await web3.eth.getAccounts();
+        await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: accounts[1],
+            value: web3.utils.toWei('0.001', 'ether')
+        });
     }
 };

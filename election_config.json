@@ -1,4 +1,5 @@
 {
+  "electionName": "Private Election",
   "questions": [
     "What is your stance on environmental policies?",
     "How do you feel about healthcare reform?",
@@ -26,6 +27,5 @@
       "Support",
       "Strongly Support"
     ]
-  ],
-  "maxVoters": 1000
+  ]
 }

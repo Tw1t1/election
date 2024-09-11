@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Election DApp - Application</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Election DApp</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul id="navbarItems" class="navbar-nav">
+                    <!-- Navbar items will be dynamically inserted here -->
+                </ul>
+            </div>
+            <span id="accountAddress" class="navbar-text"></span>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1>Application</h1>
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+        <div id="loader" class="text-center" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+        <div id="content">
+            <div id="applicationStatus" class="mt-5">
+                <h2>Application Status</h2>
+                <p id="statusMessage"></p>
+            </div>
+            <div id="applicationOptions" class="mt-3" style="display: none;">
+                <button id="showCandidateApplication" class="btn btn-primary mr-2">Apply as Candidate</button>
+                <button id="showVoterApplication" class="btn btn-primary">Apply as Voter</button>
+            </div>
+            <div id="applicationForms" class="mt-3">
+                <div id="candidateApplication" style="display: none;">
+                    <h3>Candidate Application</h3>
+                    <form id="candidateForm">
+                        <div class="form-group">
+                            <label for="candidateName">Name</label>
+                            <input type="text" class="form-control" id="candidateName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="candidateParty">Party</label>
+                            <input type="text" class="form-control" id="candidateParty" required>
+                        </div>
+                        <div id="candidateQuestions">
+                            <!-- Questions will be dynamically inserted here -->
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Candidate Application</button>
+                    </form>
+                </div>
+                <div id="voterApplication" style="display: none;">
+                    <h3>Voter Application</h3>
+                    <p>Click the button below to apply as a voter.</p>
+                    <button id="applyAsVoter" class="btn btn-primary">Submit Voter Application</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/application.js"></script>
+</body>
+</html>

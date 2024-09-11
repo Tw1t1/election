@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Election DApp - Login</title>
+    <title>Election DApp - Deploy Contract</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -17,18 +17,25 @@
     <div class="container mt-5">
         <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
 
-        <div id="loader" class="text-center">
+        <div id="loader" class="text-center" style="display: none;">
             <div class="spinner-border" role="status">
                 <span class="sr-only">Loading...</span>
             </div>
         </div>
 
         <div id="content" style="display: none;">
-            <div id="connectWallet" class="text-center">
-                <h2 class="my-4">Welcome to the Election DApp</h2>
-                <p>Please connect your wallet to continue.</p>
-                <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
-            </div>
+            <h2>Deploy Election Contract</h2>
+            <form id="deployForm">
+                <div class="form-group">
+                    <label for="electionName">Election Name</label>
+                    <input type="text" class="form-control" id="electionName" required>
+                </div>
+                <div id="questionsContainer">
+                    <!-- Questions will be dynamically inserted here -->
+                </div>
+                <button type="button" id="addQuestion" class="btn btn-secondary mt-2">Add Question</button>
+                <button type="submit" class="btn btn-primary mt-3">Deploy Contract</button>
+            </form>
         </div>
     </div>
 
@@ -38,6 +45,6 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@truffle/contract@latest/dist/truffle-contract.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/index.js"></script>
+    <script src="js/deploy.js"></script>
 </body>
 </html>

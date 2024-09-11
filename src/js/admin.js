@@ -6,206 +6,247 @@ $(document).ready(function() {
 
 const Admin = {
     init: async function() {
-        try {
-            if (!App.userType || App.userType === 'guest') {
-                App.userType = await App.checkUserType(App.account);
-            }
-            App.renderNavbar('Admin');
-            await this.loadElectionInfo();
-            this.showSection('electionTime');
-        } catch (error) {
-            console.error("Error initializing admin page:", error);
-            App.showError("Failed to load election information. Please try again later.");
-        }
+        await this.checkAdminStatus();
+        this.bindEvents();
+        App.renderNavbar('Admin');
+        await this.loadElectionTime();
+        await this.loadCandidates();
+        await this.loadVoters();
     },
 
-    showSection: function(section) {
-        $('#electionTimeSection, #candidatesSection, #votersSection').hide();
-        $(`#${section}Section`).show();
-        if (section === 'electionTime') {
-            this.loadElectionTime();
-        } else if (section === 'candidates') {
-            this.loadCandidates();
-        } else if (section === 'voters') {
-            this.loadVoters();
-        }
+    bindEvents: function() {
+        $('#setElectionTimeForm').on('submit', this.setElectionTime);
+        $(document).on('click', '.approveCandidate', this.approveCandidate);
+        $(document).on('click', '.rejectCandidate', this.rejectCandidate);
+        $(document).on('click', '.removeCandidate', this.removeCandidate);
+        $(document).on('click', '.approveVoter', this.approveVoter);
+        $(document).on('click', '.rejectVoter', this.rejectVoter);
+        $(document).on('click', '.removeVoter', this.removeVoter);
     },
 
-    loadElectionInfo: async function() {
-        try {
-            $('#accountAddress').text("Your Account: " + App.account);
-        } catch (error) {
-            console.error("Error loading election info:", error);
-            throw error;
+    checkAdminStatus: async function() {
+        const owner = await App.election.owner();
+        if (App.account.toLowerCase() !== owner.toLowerCase()) {
+            window.location.href = 'home.html';
         }
     },
 
     loadElectionTime: async function() {
-        try {
-            const votingTime = await App.election.getElectionTime();
-            let startTime = new Date(votingTime[0].toNumber() * 1000);
-            let endTime = new Date(votingTime[1].toNumber() * 1000);
-            let currentTime = new Date();
-
-            let timeInfo = '';
-            if (votingTime[0].toNumber() == 0 && votingTime[1].toNumber() == 0) {
-                timeInfo = "Election time not set.";
-                $('#setElectionTimeForm').show();
-            } else if (currentTime < startTime) {
-                timeInfo = `Election starts on ${startTime.toLocaleString()} and ends on ${endTime.toLocaleString()}`;
-                $('#setElectionTimeForm').show();
-            } else if (currentTime >= startTime && currentTime <= endTime) {
-                timeInfo = `Election is in progress. It started on ${startTime.toLocaleString()} and ends on ${endTime.toLocaleString()}`;
-                $('#setElectionTimeForm').hide();
-            } else {
-                timeInfo = `Election has ended. It started on ${startTime.toLocaleString()} and ended on ${endTime.toLocaleString()}`;
-                $('#setElectionTimeForm').hide();
-            }
-
-            $('#currentElectionTime').html(`<p>${timeInfo}</p>`);
-        } catch (error) {
-            console.error("Error loading election time:", error);
-            App.showError("Failed to load election time. Please try again later.");
+        const electionTime = await App.getElectionTime();
+        const electionStatus = await App.getElectionStatus();
+        
+        if (electionStatus === "Not set") {
+            $('#currentElectionTime').html('<p>Election time has not been set yet.</p>');
+        } else {
+            $('#currentElectionTime').html(`
+                <p><strong>Current Start Time:</strong> ${new Date(electionTime.start).toLocaleString()}</p>
+                <p><strong>Current End Time:</strong> ${new Date(electionTime.end).toLocaleString()}</p>
+            `);
+        }
+    
+        if (electionStatus !== "Not set" && electionStatus !== "Not started") {
+            $('#setElectionTimeForm').hide();
+            $('#currentElectionTime').append('<p class="text-danger">Election has already started or ended. Time cannot be changed.</p>');
+        } else {
+            // Set minimum date for start time to be current date and time
+            const now = new Date();
+            const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+            const minDateTime = localNow.toISOString().slice(0, 16);
+            $('#startTime').attr('min', minDateTime);
+            $('#startTime').val(minDateTime);
+    
+            // Set minimum date for end time to be start time
+            $('#startTime').on('change', function() {
+                const selectedStart = new Date($(this).val());
+                const minEndDateTime = new Date(selectedStart.getTime() + 60000); // Add 1 minute to start time
+                const localMinEndDateTime = new Date(minEndDateTime.getTime() - minEndDateTime.getTimezoneOffset() * 60000);
+                $('#endTime').attr('min', localMinEndDateTime.toISOString().slice(0, 16));
+                $('#endTime').val(localMinEndDateTime.toISOString().slice(0, 16));
+            });
+    
+            // Trigger change event to set initial end time
+            $('#startTime').trigger('change');
         }
     },
-
-    setElectionTime: async function(event) {
-        event.preventDefault();
-        const startTime = Math.floor(new Date($('#startTime').val()).getTime() / 1000);
-        const endTime = Math.floor(new Date($('#endTime').val()).getTime() / 1000);
-        
+    
+    setElectionTime: async function(e) {
+        e.preventDefault();
+        App.setLoading(true);
         try {
+            const startTime = Math.floor(new Date($('#startTime').val()).getTime() / 1000);
+            const endTime = Math.floor(new Date($('#endTime').val()).getTime() / 1000);
+            const now = Math.floor(Date.now() / 1000);
+    
+            if (startTime <= now) {
+                throw new Error("Start time must be in the future.");
+            }
+            if (endTime <= startTime) {
+                throw new Error("End time must be after start time.");
+            }
+    
             await App.election.setElectionTime(startTime, endTime, { from: App.account });
-            App.showSuccess("Election time set successfully.");
-            this.loadElectionTime();
+            location.reload();
         } catch (error) {
-            console.error("Error setting election time:", error);
-            App.showError("Failed to set election time. Please try again.");
+            console.error('Error setting election time:', error);
+            App.showError(error.message || 'Failed to set election time. Please try again.');
+        } finally {
+            App.setLoading(false);
         }
     },
 
     loadCandidates: async function() {
-        try {
-            const candidateCount = await App.election.getCandidateCount();
-            let approvedHtml = '<ul class="list-group">';
-            let applicationsHtml = '<ul class="list-group">';
-            let approvedCount = 0;
-            let applicationCount = 0;
-
-            for (let i = 0; i < candidateCount; i++) {
-                const candidateAddress = await App.election.candidateAddresses(i);
-                const candidate = await App.election.candidates(candidateAddress);
-
-                if (candidate.approved) {
-                    approvedHtml += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            ${candidate.name} (${candidate.party})
-                            <button class="btn btn-danger btn-sm" onclick="Admin.removeCandidate('${candidateAddress}')">Remove</button>
-                        </li>`;
-                    approvedCount++;
-                } else {
-                    applicationsHtml += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            ${candidate.name} (${candidate.party})
-                            <button class="btn btn-success btn-sm" onclick="Admin.approveCandidate('${candidateAddress}')">Approve</button>
-                        </li>`;
-                    applicationCount++;
-                }
+        const approvedCandidates = await App.election.getCandidateAddresses();
+        const candidateApplications = await App.election.getCandidateApplicationsAddresses();
+        const electionStatus = await App.getElectionStatus();
+    
+        $('#approvedCandidatesList').empty();
+        for (let address of approvedCandidates) {
+            const candidate = await App.election.candidates(address);
+            const removeButton = electionStatus === "Not started" ? 
+                `<button class="btn btn-sm btn-danger removeCandidate" data-address="${address}">Remove</button>` : '';
+            $('#approvedCandidatesList').append(`
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${candidate.name} (${candidate.party})
+                    ${removeButton}
+                </li>
+            `);
+        }
+    
+        $('#candidateApplicationsList').empty();
+        if (electionStatus === "Not started" || electionStatus === "Not set") {
+            for (let address of candidateApplications) {
+                const candidate = await App.election.candidates(address);
+                $('#candidateApplicationsList').append(`
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${candidate.name} (${candidate.party})
+                        <div>
+                            <button class="btn btn-sm btn-success approveCandidate" data-address="${address}">Approve</button>
+                            <button class="btn btn-sm btn-danger rejectCandidate" data-address="${address}">Reject</button>
+                        </div>
+                    </li>
+                `);
             }
-
-            approvedHtml += '</ul>';
-            applicationsHtml += '</ul>';
-
-            $('#approvedCandidates').html(`<p>Total: ${approvedCount}</p>${approvedHtml}`);
-            $('#candidateApplications').html(`<p>Total: ${applicationCount}</p>${applicationsHtml}`);
-        } catch (error) {
-            console.error("Error loading candidates:", error);
-            App.showError("Failed to load candidates. Please try again later.");
+        } else {
+            $('#candidateApplicationsList').append('<li class="list-group-item">Candidate applications are closed.</li>');
         }
     },
 
     loadVoters: async function() {
-        try {
-            const votersCount = await App.election.getVotersCount();
-            let approvedHtml = '<ul class="list-group">';
-            let applicationsHtml = '<ul class="list-group">';
-            let approvedCount = 0;
-            let applicationCount = 0;
-
-            // This is a simplified version. In a real-world scenario, you'd need to implement pagination or other methods to handle a large number of voters efficiently.
-            for (let i = 0; i < votersCount; i++) {
-                const voterHash = await App.election.voterList(i);
-                const voter = await App.election.voters(voterHash);
-
-                if (voter.approved) {
-                    approvedHtml += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            ${voterHash}
-                            <button class="btn btn-danger btn-sm" onclick="Admin.removeVoter('${voterHash}')">Remove</button>
-                        </li>`;
-                    approvedCount++;
-                } else {
-                    applicationsHtml += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            ${voterHash}
-                            <button class="btn btn-success btn-sm" onclick="Admin.approveVoter('${voterHash}')">Approve</button>
-                        </li>`;
-                    applicationCount++;
-                }
+        const approvedVoters = await App.election.getVoterAddresses();
+        const voterApplications = await App.election.getVoterApplicationsAddresses();
+        const electionStatus = await App.getElectionStatus();
+    
+        $('#approvedVotersList').empty();
+        for (let hashedAddress of approvedVoters) {
+            const removeButton = electionStatus === "Not started" ? 
+                `<button class="btn btn-sm btn-danger removeVoter" data-address="${hashedAddress}">Remove</button>` : '';
+            $('#approvedVotersList').append(`
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${hashedAddress}
+                    ${removeButton}
+                </li>
+            `);
+        }
+    
+        $('#voterApplicationsList').empty();
+        if (electionStatus === "Not started" || electionStatus === "Not set") {
+            for (let hashedAddress of voterApplications) {
+                $('#voterApplicationsList').append(`
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${hashedAddress}
+                        <div>
+                            <button class="btn btn-sm btn-success approveVoter" data-address="${hashedAddress}">Approve</button>
+                            <button class="btn btn-sm btn-danger rejectVoter" data-address="${hashedAddress}">Reject</button>
+                        </div>
+                    </li>
+                `);
             }
-
-            approvedHtml += '</ul>';
-            applicationsHtml += '</ul>';
-
-            $('#approvedVoters').html(`<p>Total: ${approvedCount}</p>${approvedHtml}`);
-            $('#voterApplications').html(`<p>Total: ${applicationCount}</p>${applicationsHtml}`);
-        } catch (error) {
-            console.error("Error loading voters:", error);
-            App.showError("Failed to load voters. Please try again later.");
+        } else {
+            $('#voterApplicationsList').append('<li class="list-group-item">Voter applications are closed.</li>');
         }
     },
 
-    removeCandidate: async function(candidateAddress) {
+    approveCandidate: async function() {
+        const address = $(this).data('address');
+        App.setLoading(true);
         try {
-            await App.election.removeCandidate(candidateAddress, { from: App.account });
-            App.showSuccess("Candidate removed successfully.");
-            this.loadCandidates();
+            await App.election.approveCandidate(address, { from: App.account });
+            location.reload();
         } catch (error) {
-            console.error("Error removing candidate:", error);
-            App.showError("Failed to remove candidate. Please try again.");
+            console.error('Error approving candidate:', error);
+            App.showError('Failed to approve candidate. Please try again.');
+        } finally {
+            App.setLoading(false);
         }
     },
 
-    approveCandidate: async function(candidateAddress) {
+    rejectCandidate: async function() {
+        const address = $(this).data('address');
+        App.setLoading(true);
         try {
-            await App.election.approveCandidate(candidateAddress, { from: App.account });
-            App.showSuccess("Candidate approved successfully.");
-            this.loadCandidates();
+            await App.election.rejectCandidate(address, { from: App.account });
+            location.reload();
         } catch (error) {
-            console.error("Error approving candidate:", error);
-            App.showError("Failed to approve candidate. Please try again.");
+            console.error('Error rejecting candidate:', error);
+            App.showError('Failed to reject candidate. Please try again.');
+        } finally {
+            App.setLoading(false);
         }
     },
 
-    removeVoter: async function(voterHash) {
+    removeCandidate: async function() {
+        const address = $(this).data('address');
+        App.setLoading(true);
         try {
-            await App.election.removeVoter(voterHash, { from: App.account });
-            App.showSuccess("Voter removed successfully.");
-            this.loadVoters();
+            await App.election.removeCandidate(address, { from: App.account });
+            location.reload();
         } catch (error) {
-            console.error("Error removing voter:", error);
-            App.showError("Failed to remove voter. Please try again.");
+            console.error('Error removing candidate:', error);
+            App.showError('Failed to remove candidate. Please try again.');
+        } finally {
+            App.setLoading(false);
         }
     },
 
-    approveVoter: async function(voterHash) {
+    approveVoter: async function() {
+        const hashedAddress = $(this).data('address');
+        App.setLoading(true);
         try {
-            await App.election.approveVoter(voterHash, { from: App.account });
-            App.showSuccess("Voter approved successfully.");
-            this.loadVoters();
+            await App.election.approveVoter(hashedAddress, { from: App.account });
+            location.reload();
         } catch (error) {
-            console.error("Error approving voter:", error);
-            App.showError("Failed to approve voter. Please try again.");
+            console.error('Error approving voter:', error);
+            App.showError('Failed to approve voter. Please try again.');
+        } finally {
+            App.setLoading(false);
+        }
+    },
+
+    rejectVoter: async function() {
+        const hashedAddress = $(this).data('address');
+        App.setLoading(true);
+        try {
+            await App.election.rejectVoter(hashedAddress, { from: App.account });
+            location.reload();
+        } catch (error) {
+            console.error('Error rejecting voter:', error);
+            App.showError('Failed to reject voter. Please try again.');
+        } finally {
+            App.setLoading(false);
+        }
+    },
+
+    removeVoter: async function() {
+        const hashedAddress = $(this).data('address');
+        App.setLoading(true);
+        try {
+            await App.election.removeVoter(hashedAddress, { from: App.account });
+            location.reload();
+        } catch (error) {
+            console.error('Error removing voter:', error);
+            App.showError('Failed to remove voter. Please try again.');
+        } finally {
+            App.setLoading(false);
         }
     }
 };

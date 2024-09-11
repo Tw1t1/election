@@ -21,79 +21,85 @@ const Home = {
     loadElectionInfo: async function() {
         try {
             $('#contractAddress').text(App.contractAddress);
-
-            const electionTime = await App.election.getElectionTime();
-            let startTime, endTime;
-
-            if (Array.isArray(electionTime) && electionTime.length === 2) {
-                [startTime, endTime] = electionTime.map(time => time.toNumber() * 1000);
-            } else if (typeof electionTime === 'object') {
-                startTime = (electionTime.start || electionTime[0]).toNumber() * 1000;
-                endTime = (electionTime.end || electionTime[1]).toNumber() * 1000;
-            } else {
-                console.error("Unexpected electionTime format:", electionTime);
-                startTime = endTime = 0;
-            }
-
-            const currentTime = Date.now();
-
-            let electionStatus;
-            if (startTime === 0 && endTime === 0) {
-                electionStatus = "Time not set";
-            } else if (currentTime < startTime) {
-                electionStatus = "Not started";
-            } else if (currentTime >= startTime && currentTime <= endTime) {
-                electionStatus = "In progress";
-            } else {
-                electionStatus = "Ended";
-            }
-
+    
+            const electionStatus = await App.getElectionStatus();
             $('#electionStatus').text(electionStatus);
-            $('#startTime').text(startTime ? new Date(startTime).toLocaleString() : "Not set");
-            $('#endTime').text(endTime ? new Date(endTime).toLocaleString() : "Not set");
-
-            const candidatesCount = await App.election.getCandidateAddresses().length;
+    
+            const isTimeSet = await App.isElectionTimeSet();
+            if (isTimeSet) {
+                const electionTime = await App.getElectionTime();
+                $('#startTime').text(new Date(electionTime.start).toLocaleString());
+                $('#endTime').text(new Date(electionTime.end).toLocaleString());
+            } else {
+                $('#startTime').text("Not set");
+                $('#endTime').text("Not set");
+            }
+    
+            // Updated way to get candidate count
+            let candidatesCount;
+            try {
+                candidatesCount = await App.election.getCandidateAddresses();
+                candidatesCount = Array.isArray(candidatesCount) ? candidatesCount.length : 0;
+            } catch (error) {
+                console.error("Error getting candidate addresses:", error);
+                candidatesCount = 0;
+            }
             $('#candidatesCount').text(candidatesCount.toString());
-
+    
             if (App.userType === 'admin') {
                 $('#adminOnlyInfo').show();
                 
-                // Count unapproved candidate applications
-                const candidateAddresses = await App.election.getCandidateAddresses().length();
-                let openCandidateApplications = 0;
-                for (let i = 0; i < candidateAddresses.length; i++) {
-                    const candidate = await App.election.candidates(candidateAddresses[i]);
-                    if (!candidate.approved) {
-                        openCandidateApplications++;
-                    }
+                let candidateApplicationsCount;
+                try {
+                    candidateApplicationsCount = await App.election.getCandidateApplicationsAddresses();
+                    candidateApplicationsCount = Array.isArray(candidateApplicationsCount) ? candidateApplicationsCount.length : 0;
+                } catch (error) {
+                    console.error("Error getting candidate applications:", error);
+                    candidateApplicationsCount = 0;
                 }
-                $('#openCandidateApplications').text(openCandidateApplications.toString());
-
-                // Get voter applications count
-                const voterApplicationsCount = await App.election.getVoterApplicationsCount();
+                $('#openCandidateApplications').text(candidateApplicationsCount.toString());
+    
+                let voterApplicationsCount;
+                try {
+                    voterApplicationsCount = await App.election.getVoterApplicationsAddresses();
+                    voterApplicationsCount = Array.isArray(voterApplicationsCount) ? voterApplicationsCount.length : 0;
+                } catch (error) {
+                    console.error("Error getting voter applications:", error);
+                    voterApplicationsCount = 0;
+                }
                 $('#openVoterApplications').text(voterApplicationsCount.toString());
-
-                const votersCount = await App.election.getVotersCount();
-                $('#votersCount').text(votersCount.toString());
-
-                const totalVotes = await App.election.getVotesCount();
-                $('#totalVotes').text(totalVotes.toString());
-
-                if (electionStatus === "Ended") {
-                    await this.loadResults();
+    
+                let votersCount;
+                try {
+                    const voterAddresses = await App.election.getVoterAddresses();
+                    votersCount = Array.isArray(voterAddresses) ? voterAddresses.length : 0;
+                } catch (error) {
+                    console.error("Error getting voter addresses:", error);
+                    votersCount = 0;
                 }
+                $('#votersCount').text(votersCount.toString());
+    
+                const votesCount = await App.election.votesCount();
+                $('#totalVotes').text(votesCount.toString());
+    
             }
-
+            
+            if (electionStatus === "Ended") {
+                await this.loadResults();
+            }
+    
             $('#accountAddress').text("Your Account: " + App.account);
         } catch (error) {
             console.error("Error loading election info:", error);
-            throw error;
+            App.showError("Failed to load election information. Please try again later.");
         }
     },
 
     loadResults: async function() {
         try {
-            const [candidates, voteCounts] = await App.election.getResults();
+            const result = await App.election.getResults();
+            candidates = result['0'];
+            voteCounts = result['1'];
             const resultsList = $('#resultsList');
             resultsList.empty();
 

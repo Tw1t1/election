@@ -18,10 +18,8 @@ const App = {
         { name: 'Settings', link: 'admin.html', visible: (userType) => userType === 'admin' }
     ],
 
-    init: function () {
-        console.log("App.init called");
+    init: async function () {
         if (this.initializationPromise) {
-            console.log("Returning existing initialization promise");
             return this.initializationPromise;
         }
 
@@ -179,36 +177,94 @@ const App = {
 
     checkUserType: async function (userAddress) {
         if (userAddress && App.election) {
-            // Check if the user is the admin (owner of the contract)
             try {
-                const owner = await App.election.owner(); // No methods required for owner() in OpenZeppelin's Ownable
+                const owner = await App.election.owner();
                 if (userAddress.toLowerCase() === owner.toLowerCase()) {
                     return 'admin';
                 }
 
-                // Check if the user is a candidate
                 const candidate = await App.election.candidates(userAddress);
                 if (candidate.approved) {
                     return 'candidate';
                 }
 
-                // Check if the user is a voter
-                const voter = await App.election.voters(userAddress);
+                const voter = await App.election.voters(web3.utils.keccak256(userAddress));
                 if (voter.approved) {
                     return 'voter';
                 }
 
-                // If none of the above conditions are met, the user is a regular user
                 return 'user';
             } catch (error) {
                 console.error("Error checking user type:", error);
+                return 'user';
             }
         }
-        else {
-            // If the user is not logged in, return 'guest'
-            return 'guest';
+        return 'guest';
+    },
+
+    listenForEvents: function() {
+        App.election.CandidateApproved().on('data', event => {
+            console.log('Candidate Approved:', event.returnValues);
+            // Refresh the page or update relevant data
+            App.refreshPage();
+        });
+
+        App.election.CandidateRemoved().on('data', event => {
+            console.log('Candidate Removed:', event.returnValues);
+            App.refreshPage();
+        });
+
+        App.election.VoteCast().on('data', event => {
+            console.log('Vote Cast:', event.returnValues);
+            App.refreshPage();
+        });
+
+        App.election.VotingTimeSet().on('data', event => {
+            console.log('Voting Time Set:', event.returnValues);
+            App.refreshPage();
+        });
+
+        App.election.VoterRewarded().on('data', event => {
+            console.log('Voter Rewarded:', event.returnValues);
+            App.refreshPage();
+        });
+    },
+
+    refreshPage: function() {
+        location.reload();
+    },
+
+    isElectionTimeSet: async function() {
+        const electionStartTime = await App.election.electionStartTime();
+        const electionEndTime = await App.election.electionEndTime();
+        return electionStartTime.toNumber() !== 0 && electionEndTime.toNumber() !== 0;
+    },
+    
+    getElectionTime: async function() {
+        const electionStartTime = await App.election.electionStartTime();
+        const electionEndTime = await App.election.electionEndTime();
+        return {
+            start: electionStartTime.toNumber() * 1000, // Convert to milliseconds
+            end: electionEndTime.toNumber() * 1000
+        };
+    },
+    
+    getElectionStatus: async function() {
+        const now = Math.floor(Date.now() / 1000); // Current time in seconds
+        const electionStartTime = await App.election.electionStartTime();
+        const electionEndTime = await App.election.electionEndTime();
+        
+        if (electionStartTime.toNumber() === 0 && electionEndTime.toNumber() === 0) {
+            return "Not set";
+        } else if (now < electionStartTime.toNumber()) {
+            return "Not started";
+        } else if (now >= electionStartTime.toNumber() && now <= electionEndTime.toNumber()) {
+            return "In progress";
+        } else {
+            return "Ended";
         }
     }
+
 };
 
 $(document).ready(function () {
@@ -216,7 +272,6 @@ $(document).ready(function () {
         console.error("Error during App initialization:", error);
     });
 
-    // Listen for account changes
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', function (accounts) {
             App.account = accounts[0];

@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deploy Election Contract</title>
+    <title>Election DApp - Deploy Contract</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">Election DApp</a>
+    <div class="container-fluid">
+        <nav class="navbar navbar-light bg-light">
+            <span class="navbar-brand mb-0 h1">Election DApp</span>
             <span id="accountAddress" class="navbar-text"></span>
-        </div>
-    </nav>
+        </nav>
+    </div>
 
     <div class="container mt-5">
-
         <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
 
-        <div id="loader" class="display-4 text-center">
-            Loading...
+        <div id="loader" class="text-center" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
         </div>
 
         <div id="content" style="display: none;">
+            <h2>Deploy Election Contract</h2>
             <form id="deployForm">
-                <h1 class="text-center my-4">Deploy Election Contract</h1>
-
                 <div class="form-group">
-                    <label for="maxVoters">Maximum Number of Voters:</label>
-                    <input type="number" class="form-control" id="maxVoters" required min="1">
+                    <label for="electionName">Election Name</label>
+                    <input type="text" class="form-control" id="electionName" required>
                 </div>
-
-                <div id="questionsContainer"></div>
-
-                <button type="button" id="addQuestionBtn" class="btn btn-secondary mt-3">Add Question</button>
-                <button type="submit" id="deployButton" class="btn btn-primary mt-3">Deploy Contract</button>
+                <div id="questionsContainer">
+                    <!-- Questions will be dynamically inserted here -->
+                </div>
+                <button type="button" id="addQuestion" class="btn btn-secondary mt-2">Add Question</button>
+                <button type="submit" class="btn btn-primary mt-3">Deploy Contract</button>
             </form>
         </div>
     </div>
